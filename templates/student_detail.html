@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil de {{ student.nombre }} | AI-Classroom</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-dark text-white">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark-custom shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="fas fa-brain me-2"></i>AI-Classroom</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-5 mb-5">
+        <div class="text-center mb-5">
+            <h1 class="display-5">Perfil de Aprendizaje</h1>
+            <p class="lead text-muted">{{ student.nombre }} {{ student.apellido }} (ID: {{ student.id }})</p>
+        </div>
+
+        {% if student.kolb_style %}
+        <div class="row g-4 justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card card-custom h-100 text-center">
+                    <div class="card-header header-custom text-primary-custom"><h5>Modelo de Kolb</h5></div>
+                    <div class="card-body d-flex flex-column justify-content-center">
+                        <i class="fas fa-project-diagram fa-3x text-primary-custom mb-3"></i>
+                        <h2 class="card-title">{{ student.kolb_style }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card card-custom h-100 text-center">
+                    <div class="card-header header-custom text-warning-custom"><h5>Modelo VAK</h5></div>
+                    <div class="card-body d-flex flex-column justify-content-center">
+                        <i class="fas fa-eye fa-3x text-warning-custom mb-3"></i>
+                        <h2 class="card-title">{{ student.vak_style }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card card-custom h-100">
+                    <div class="card-header header-custom text-info-custom text-center"><h5>Modelo Felder-Silverman</h5></div>
+                    <ul class="list-group list-group-flush">
+                        {% for dimension, style in student.felder_styles.items() %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>{{ dimension.replace('/', ' / ') }}</span>
+                            <span class="badge bg-info rounded-pill">{{ style }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center">
+            <p class="h4 text-muted">Este estudiante aún no ha completado el cuestionario de estilos de aprendizaje.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
