@@ -29,7 +29,7 @@ Un sistema de gestión de aula inteligente desarrollado en Python que utiliza in
 
 ---
 
-## 🚀 Instalación y Ejecución
+## 🚀 Guía de Instalación y Ejecución
 
 A continuación, se detallan los pasos para configurar y ejecutar este proyecto utilizando **Python 3.10.0**.
 
@@ -38,55 +38,61 @@ A continuación, se detallan los pasos para configurar y ejecutar este proyecto 
 Sigue estos pasos para la configuración inicial del entorno virtual y las dependencias del proyecto.
 
 1.  **Clonar el repositorio:**
-    Abre una terminal (como Git Bash o CMD) y clona este repositorio en tu máquina local.
+    Abre una terminal y clona este repositorio en tu máquina local.
     ```bash
     git clone [https://github.com/joshpineda17/AI-Classroom-System.git](https://github.com/joshpineda17/AI-Classroom-System.git)
-    ```
-
-2.  **Navegar al directorio del proyecto:**
-    ```bash
     cd AI-Classroom-System
     ```
-    *(Reemplaza la ruta si es necesario para llegar a la carpeta del proyecto)*.
 
-3.  **Crear el Entorno Virtual:**
-    Se recomienda abrir el **Símbolo del sistema (CMD) como administrador** para este paso para evitar posibles problemas de permisos.
+2.  **Crear y Activar el Entorno Virtual (`venv`):**
+    Se recomienda abrir el **Símbolo del sistema (CMD) como administrador** para la instalación inicial.
     ```bash
+    # Crear el entorno virtual
     python -m venv venv
-    ```
 
-4.  **Activar el Entorno Virtual:**
-    ```bash
+    # Activar el entorno virtual (en Windows)
     .\venv\Scripts\activate
     ```
     Una vez activo, verás `(venv)` al inicio de la línea de tu terminal.
 
-5.  **Actualizar `pip`:**
+3.  **Actualizar `pip`:**
     Es una buena práctica asegurarse de tener la última versión del instalador de paquetes.
     ```bash
     pip install --upgrade pip
     ```
 
-6.  **Instalar las Dependencias:**
+4.  **Instalar las Dependencias:**
     Este comando leerá el archivo `requirements.txt` e instalará todas las librerías necesarias.
     ```bash
     pip install -r requirements.txt
     ```
 
-7.  **Descargar el Modelo de Lenguaje (LLM):**
-    Este paso es **manual y obligatorio** para la función de "Mejorar con IA".
-    * Crea una carpeta llamada `modelos` en la raíz del proyecto.
-    * Descarga el archivo `Phi-3-mini-4k-instruct-q4.gguf` desde [Hugging Face](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf).
-    * Coloca el archivo `.gguf` descargado dentro de la carpeta `modelos`.
+5.  **Configurar el Modelo de IA (Paso Manual Obligatorio):**
+    El modelo de lenguaje (LLM) es demasiado grande para incluirlo en GitHub, por lo que debe configurarse manualmente.
+
+    **a. Crear la carpeta `modelos`:**
+    Dentro de la carpeta raíz del proyecto (`AI-Classroom-System`), ejecuta el siguiente comando para crear la carpeta necesaria:
+    ```bash
+    mkdir modelos
+    ```
+
+    **b. Descargar el modelo de lenguaje:**
+    * **Archivo necesario:** `Phi-3-mini-4k-instruct-q4.gguf`
+    * **Enlace de descarga:** [Microsoft Phi-3-mini GGUF en Hugging Face](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf)
+
+    **c. Ubicar el modelo:**
+    Mueve el archivo `.gguf` que acabas de descargar a la carpeta `modelos` que creaste en el paso a. La estructura final debe ser:
+    ```
+    AI-Classroom-System/
+    └─── modelos/
+         └─── Phi-3-mini-4k-instruct-q4.gguf
+    ```
 
 ### ### Ejecución
 
 Una vez que el entorno está configurado, puedes ejecutar el proyecto.
 
-1.  **Abre una nueva terminal (CMD normal)** y navega al directorio del proyecto.
-    ```bash
-    cd C:\ruta\a\tu\AI-Classroom-System
-    ```
+1.  **Abre una terminal** y navega al directorio del proyecto.
 
 2.  **Activa el entorno virtual** (si no está activo):
     ```bash
@@ -99,8 +105,8 @@ Una vez que el entorno está configurado, puedes ejecutar el proyecto.
     ```
 
 4.  **Accede a la aplicación:**
-    El servidor se iniciará. Abre tu navegador web y navega a la siguiente dirección:
-    **http://127.0.0.1:5000**
+    El servidor se iniciará. Abre tu navegador web y navega a la siguiente dirección para usar la aplicación:
+    **http://12-7.0.0.1:5000**
 
 ### ### Detener la Aplicación
 
@@ -109,7 +115,6 @@ Una vez que el entorno está configurado, puedes ejecutar el proyecto.
     ```bash
     deactivate
     ```
-
 ---
 ## 📂 Estructura del Proyecto
 
@@ -121,8 +126,8 @@ Una vez que el entorno está configurado, puedes ejecutar el proyecto.
 ├── llm_processor.py        # Módulo para interactuar con el modelo de lenguaje.
 ├── requirements.txt        # Lista de dependencias de Python.
 ├── .gitignore              # Archivos y carpetas a ignorar por Git (como venv).
-├── /modelos/               # Carpeta para los modelos de IA pesados (ej. LLM).
+├── /modelos/               # (Creada manualmente) Carpeta para los modelos de IA.
 ├── /static/                # Archivos CSS y JavaScript.
-├── /venv/                  # Carpeta con el entorno virtual y sus instalaciones
+├── /venv/                  #Entorno virtual de python con todas las librerias para que funcione el proyecto
 └── /templates/             # Archivos HTML de la aplicación.
 ```
