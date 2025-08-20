@@ -20,7 +20,7 @@ Un sistema de gestión de aula inteligente desarrollado en Python que utiliza in
 
 ## 🛠️ Tecnologías Utilizadas
 
-* **Backend:** **Python**, **Flask**
+* **Backend:** **Python 3.10.0**, **Flask**
 * **Computer Vision:** **OpenCV**, **`face_recognition`** (dlib), **TensorFlow** (MoveNet)
 * **Procesamiento de Audio:** **PyAudio**, **OpenAI Whisper**
 * **Modelo de Lenguaje (LLM):** **`llama-cpp-python`** con el modelo **Phi-3**
@@ -29,70 +29,86 @@ Un sistema de gestión de aula inteligente desarrollado en Python que utiliza in
 
 ---
 
-## 🚀 Guía de Instalación y Ejecución
+## 🚀 Instalación y Ejecución
 
-Sigue estos pasos para poner en marcha el proyecto en un entorno local.
+A continuación, se detallan los pasos para configurar y ejecutar este proyecto utilizando **Python 3.10.0**.
 
-### ### 1. Prerrequisitos
+### ### Instalación
 
-Asegúrate de tener instalado:
-* [Python 3.9+](https://www.python.org/downloads/)
-* [Git](https://git-scm.com/downloads)
+Sigue estos pasos para la configuración inicial del entorno virtual y las dependencias del proyecto.
 
-### ### 2. Clonar el Repositorio
-
-Abre una terminal y clona este repositorio en tu máquina local.
-```bash
-git clone [https://github.com/joshpineda17/AI-Classroom-System.git](https://github.com/joshpineda17/AI-Classroom-System.git)
-cd AI-Classroom-System
-```
-
-### ### 3. Crear y Activar el Entorno Virtual (`venv`)
-
-Un entorno virtual es crucial para aislar las dependencias del proyecto.
-
-**a. Crear el `venv`:**
-```bash
-python -m venv venv
-```
-
-**b. Activar el `venv`:**
-
-* **En Windows (CMD o PowerShell):**
+1.  **Clonar el repositorio:**
+    Abre una terminal (como Git Bash o CMD) y clona este repositorio en tu máquina local.
     ```bash
-    venv\Scripts\activate
+    git clone [https://github.com/joshpineda17/AI-Classroom-System.git](https://github.com/joshpineda17/AI-Classroom-System.git)
     ```
-* **En macOS o Linux:**
+
+2.  **Navegar al directorio del proyecto:**
     ```bash
-    source venv/bin/activate
+    cd AI-Classroom-System
     ```
-Una vez activo, verás `(venv)` al inicio de la línea de tu terminal.
+    *(Reemplaza la ruta si es necesario para llegar a la carpeta del proyecto)*.
 
-### ### 4. Instalar las Dependencias
+3.  **Crear el Entorno Virtual:**
+    Se recomienda abrir el **Símbolo del sistema (CMD) como administrador** para este paso para evitar posibles problemas de permisos.
+    ```bash
+    python -m venv venv
+    ```
 
-Con el entorno virtual activado, instala todas las librerías necesarias con un solo comando:
-```bash
-pip install -r requirements.txt
-```
+4.  **Activar el Entorno Virtual:**
+    ```bash
+    .\venv\Scripts\activate
+    ```
+    Una vez activo, verás `(venv)` al inicio de la línea de tu terminal.
 
-### ### 5. Descargar el Modelo de Lenguaje (LLM)
+5.  **Actualizar `pip`:**
+    Es una buena práctica asegurarse de tener la última versión del instalador de paquetes.
+    ```bash
+    pip install --upgrade pip
+    ```
 
-Este paso es **manual y obligatorio** para la función de "Mejorar con IA".
+6.  **Instalar las Dependencias:**
+    Este comando leerá el archivo `requirements.txt` e instalará todas las librerías necesarias.
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-* **Crea la carpeta:** Dentro de tu proyecto, crea una carpeta llamada `modelos`.
-* **Descarga el archivo:**
-    * Ve al siguiente enlace: [Microsoft Phi-3-mini GGUF en Hugging Face](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf)
-    * Busca y descarga el archivo `Phi-3-mini-4k-instruct-q4.gguf`.
-* **Ubica el archivo:** Mueve el archivo `.gguf` descargado a la carpeta `modelos` que creaste.
+7.  **Descargar el Modelo de Lenguaje (LLM):**
+    Este paso es **manual y obligatorio** para la función de "Mejorar con IA".
+    * Crea una carpeta llamada `modelos` en la raíz del proyecto.
+    * Descarga el archivo `Phi-3-mini-4k-instruct-q4.gguf` desde [Hugging Face](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf).
+    * Coloca el archivo `.gguf` descargado dentro de la carpeta `modelos`.
 
-### ### 6. Ejecutar el Programa
+### ### Ejecución
 
-Una vez completada la instalación, inicia la aplicación Flask:
-```bash
-python app.py
-```
-El servidor se iniciará. Abre tu navegador web y navega a la siguiente dirección para usar la aplicación:
-**http://127.0.0.1:5000**
+Una vez que el entorno está configurado, puedes ejecutar el proyecto.
+
+1.  **Abre una nueva terminal (CMD normal)** y navega al directorio del proyecto.
+    ```bash
+    cd C:\ruta\a\tu\AI-Classroom-System
+    ```
+
+2.  **Activa el entorno virtual** (si no está activo):
+    ```bash
+    .\venv\Scripts\activate
+    ```
+
+3.  **Ejecuta la aplicación principal:**
+    ```bash
+    python app.py
+    ```
+
+4.  **Accede a la aplicación:**
+    El servidor se iniciará. Abre tu navegador web y navega a la siguiente dirección:
+    **http://127.0.0.1:5000**
+
+### ### Detener la Aplicación
+
+1.  **Para detener el servidor web**, ve a la terminal donde se está ejecutando y presiona las teclas `Ctrl + C`.
+2.  **Para desactivar el entorno virtual** y volver a la terminal normal, ejecuta:
+    ```bash
+    deactivate
+    ```
 
 ---
 ## 📂 Estructura del Proyecto
@@ -100,7 +116,6 @@ El servidor se iniciará. Abre tu navegador web y navega a la siguiente direcci�
 ```
 /
 ├── app.py                  # Servidor Flask, maneja las rutas y la lógica principal.
-├── /venv/                  # Adonde se almacena todo el etorno virtual  
 ├── core_logic.py           # Contiene toda la IA (reconocimiento facial, pose, audio).
 ├── database.py             # Gestiona la base de datos SQLite.
 ├── llm_processor.py        # Módulo para interactuar con el modelo de lenguaje.
@@ -108,5 +123,6 @@ El servidor se iniciará. Abre tu navegador web y navega a la siguiente direcci�
 ├── .gitignore              # Archivos y carpetas a ignorar por Git (como venv).
 ├── /modelos/               # Carpeta para los modelos de IA pesados (ej. LLM).
 ├── /static/                # Archivos CSS y JavaScript.
+├── /venv/                  # Carpeta con el entorno virtual y sus instalaciones
 └── /templates/             # Archivos HTML de la aplicación.
 ```
