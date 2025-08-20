@@ -100,6 +100,7 @@ El servidor se iniciará. Abre tu navegador web y navega a la siguiente direcci�
 ```
 /
 ├── app.py                  # Servidor Flask, maneja las rutas y la lógica principal.
+├── /venv/                  # Adonde se almacena todo el etorno virtual  
 ├── core_logic.py           # Contiene toda la IA (reconocimiento facial, pose, audio).
 ├── database.py             # Gestiona la base de datos SQLite.
 ├── llm_processor.py        # Módulo para interactuar con el modelo de lenguaje.
