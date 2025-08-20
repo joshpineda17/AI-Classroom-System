@@ -1,0 +1,10 @@
+Flask
+Flask-SocketIO
+opencv-python
+numpy
+face_recognition
+pyaudio
+openai-whisper
+tensorflow
+tensorflow-hub
+llama-cpp-python
