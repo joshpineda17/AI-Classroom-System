@@ -136,5 +136,76 @@ def serve_record(filename): return send_from_directory(app.config['RECORDS_FOLDE
 @app.route('/records/texts/<path:filename>')
 def serve_text_record(filename): return send_from_directory(os.path.join(app.config['RECORDS_FOLDER'], 'texts'), filename)
 
+# --- Páginas y APIs para calibración y asignación de asientos ---
+
+# Página para calibrar asientos dibujando cajas sobre el vídeo
+@app.route('/calibrate_seats')
+def calibrate_seats_page():
+    return render_template('calibrate_seats.html')
+
+# Página para asignar estudiantes a asientos existentes
+@app.route('/assign_seats')
+def assign_seats_page():
+    return render_template('assign_seats.html')
+
+# Iniciar monitor de calibración
+@app.route('/start_calibration_monitor', methods=['POST'])
+def start_calibration_monitor_route():
+    return jsonify(core_logic.start_calibration_monitor())
+
+# Detener monitor de calibración
+@app.route('/stop_calibration_monitor', methods=['POST'])
+def stop_calibration_monitor_route():
+    return jsonify(core_logic.stop_calibration_monitor())
+
+# Stream de vídeo para calibración
+@app.route('/video_feed/calibrate')
+def video_feed_calibrate():
+    return Response(core_logic.generate_calibrate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+# Devuelve las cajas de asientos actuales
+@app.route('/api/seat_boxes')
+def api_seat_boxes():
+    return jsonify(core_logic.get_seat_boxes())
+
+# Devuelve las asignaciones de asientos actuales
+@app.route('/api/seat_assignments')
+def api_seat_assignments():
+    return jsonify(core_logic.get_seat_assignments())
+
+# Añade una nueva caja de asiento (x,y,w,h) y devuelve el ID generado
+@app.route('/api/add_seat', methods=['POST'])
+def api_add_seat():
+    data = request.get_json(force=True)
+    x = data.get('x'); y = data.get('y'); w = data.get('w'); h = data.get('h')
+    if None in (x, y, w, h):
+        return jsonify({"success": False, "message": "Datos incompletos"}), 400
+    try:
+        seat_id = core_logic.add_seat_box(int(x), int(y), int(w), int(h))
+        return jsonify({"success": True, "seat_id": seat_id})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
+# Elimina la última caja de asiento
+@app.route('/api/remove_last_seat', methods=['POST'])
+def api_remove_last_seat():
+    success = core_logic.remove_last_seat_box()
+    return jsonify({"success": success})
+
+# Asigna un estudiante a un asiento
+@app.route('/api/assign_seat', methods=['POST'])
+def api_assign_seat():
+    data = request.get_json(force=True)
+    seat_id = data.get('seat_id')
+    student_id = data.get('student_id')
+    if not seat_id:
+        return jsonify({"success": False, "message": "seat_id faltante"}), 400
+    success = core_logic.assign_student_to_seat(student_id, seat_id)
+    return jsonify({"success": success})
+
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    # Ejecutar la aplicación sin recargador automático para evitar que el servidor
+    # reinicie al detectar cambios en librerías de terceros (por ejemplo, durante
+    # la transcripción de audio con Whisper).  El modo debug está desactivado
+    # porque el reloader causa problemas en la grabación/transcripción.
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

@@ -1,10 +1,12 @@
 # Entorno Virtual de Python
 # Ignora la carpeta que contiene todas las librerías instaladas.
 /venv/
+/EV/
 
 # Modelos de IA (archivos grandes)
 # Ignora la carpeta con el modelo LLM que es demasiado grande para GitHub.
 /modelos/
+/models/
 
 # Datos generados por la aplicación
 # Ignora las grabaciones, transcripciones y rostros guardados.

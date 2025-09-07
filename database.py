@@ -128,6 +128,25 @@ def get_participation_summary_by_period():
             return [dict(row) for row in conn.execute("SELECT periodo, COUNT(DISTINCT student_id) as total_participantes, COUNT(student_id) as total_participaciones FROM participation WHERE date(timestamp) = ? GROUP BY periodo", (datetime.date.today().isoformat(),))]
     except: return []
 
+# NUEVA FUNCIÓN: Registrar participación
+def record_participation(student_id, periodo):
+    """Inserta un registro de participación para el estudiante y periodo dados.
+
+    Args:
+        student_id (str): ID del estudiante.
+        periodo (str): Nombre del período de clase (por ejemplo, "Clase 1").
+
+    Returns:
+        bool: True si se insertó correctamente, False en caso de error.
+    """
+    try:
+        with db_lock, _get_db_conn() as conn:
+            conn.execute("INSERT INTO participation (student_id, periodo, timestamp) VALUES (?, ?, ?)",
+                         (student_id, periodo, datetime.datetime.now().isoformat()))
+            return True
+    except Exception:
+        return False
+
 def get_all_students_with_learning_styles():
     try:
         with _get_db_conn() as conn:

@@ -13,6 +13,7 @@ import whisper
 import logging
 import random
 import llm_processor 
+import json  # Para cargar configuraciones de asientos
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 cl_logger = logging.getLogger(__name__)
@@ -41,9 +42,34 @@ audio_recording_thread = None
 audio_frames = []
 p_audio_instance = None
 
+# Indicador para el monitor de calibración.  Cuando es True, el generador de
+# frames de calibración transmitirá la cámara con las cajas de asientos
+# superpuestas. Este monitor se gestiona mediante las funciones
+# start_calibration_monitor() y stop_calibration_monitor().
+calibration_monitor_active = False
+
 PERIODOS_REGISTRO = [("Clase 1", "06:00", "07:50"), ("Clase 2", "08:00", "09:40")]
 KEYPOINT_DICT = {'nose': 0, 'left_eye': 1, 'right_eye': 2, 'left_ear': 3, 'right_ear': 4, 'left_shoulder': 5, 'right_shoulder': 6, 'left_elbow': 7, 'right_elbow': 8, 'left_wrist': 9, 'right_wrist': 10, 'left_hip': 11, 'right_hip': 12, 'left_knee': 13, 'right_knee': 14, 'left_ankle': 15, 'right_ankle': 16}
 EDGES = [(0, 1), (0, 2), (1, 3), (2, 4), (0, 5), (0, 6), (5, 7), (7, 9), (6, 8), (8, 10), (5, 6), (5, 11), (6, 12), (11, 12), (11, 13), (13, 15), (12, 14), (14, 16)]
+
+# ------------------------------
+# Configuración de asientos y participación
+#
+# El sistema puede cargar un archivo de asientos y otro de asignaciones
+# para superponer cajas predefinidas en el streaming de pose.  También
+# permite asignar estudiantes a asientos y registrar participaciones.
+
+SEATS_FILE = os.path.join('data', 'seats.json')
+SEAT_ASSIGNMENTS_FILE = os.path.join('data', 'seat_assignments.json')
+
+# Estructuras globales que se inicializarán mediante load_seat_config().
+seat_boxes = []          # Lista de dicts con keys: seat_id, rect [x,y,w,h]
+seat_assignments = {}    # seat_id -> student_id
+participation_counts = {}  # seat_id -> int (participaciones acumuladas)
+seat_last_participation_time = {}  # seat_id -> datetime
+
+# Tiempo en segundos que debe pasar entre puntos consecutivos para un mismo asiento
+PARTICIPATION_COOLDOWN = 3
 
 KOLB_QUESTIONS = {1: ("Prefiero trabajar en equipo para generar ideas y escuchar otras perspectivas.", "Activo/Divergente"),2: ("Me gusta seguir un plan lógico y estructurado para aprender.", "Asimilativo"),3: ("Disfruto aplicar la teoría directamente a problemas prácticos.", "Convergente"),4: ("Suelo basar mis decisiones en la intuición y en la experiencia de otros.", "Acomodador"),5: ("Me entusiasma probar actividades nuevas aunque no las domine.", "Activo/Divergente"),6: ("Me concentro en comprender a fondo los conceptos antes de actuar.", "Asimilativo"),7: ("Prefiero resolver problemas técnicos más que debatir temas sociales.", "Convergente"),8: ("Tomo decisiones rápidamente aunque no tenga toda la información.", "Acomodador"),9: ("Me gusta imaginar diferentes formas de resolver un mismo problema.", "Activo/Divergente"),10: ("Prefiero estudiar con lecturas, conferencias o clases magistrales.", "Asimilativo"),11: ("Aprendo mejor haciendo pruebas y experimentos prácticos.", "Convergente"),12: ("Me gusta coordinar ideas de otros para formar una propuesta única.", "Acomodador")}
 KOLB_MAP = {"Activo/Divergente": [1, 5, 9], "Asimilativo": [2, 6, 10], "Convergente": [3, 7, 11], "Acomodador": [4, 8, 12]}
@@ -84,6 +110,249 @@ def get_current_attendance_period():
         end_time = datetime.datetime.strptime(end_str, "%H:%M").time()
         if start_time <= now.time() <= end_time: return name, None
     return None, "Fuera de horario de clase"
+
+
+# -----------------------------------------------------------------------------
+# Gestión de asientos y participación
+#
+# Las siguientes funciones permiten cargar las cajas de asientos desde un archivo
+# JSON, asignar estudiantes a asientos específicos y llevar un registro de
+# participaciones.  Esta funcionalidad se utiliza opcionalmente en el
+# streaming de pose para reconocer gestos y otorgar puntos a los estudiantes
+# asignados a cada asiento.
+
+def load_seat_config():
+    """Carga la configuración de asientos y asignaciones desde disco.
+
+    Lee los archivos definidos en SEATS_FILE y SEAT_ASSIGNMENTS_FILE.  Si
+    data/seats.json no existe o está vacío, seat_boxes permanece vacío y la
+    funcionalidad de asientos estará inactiva.
+    """
+    global seat_boxes, seat_assignments, participation_counts
+    # Cargar cajas de asientos
+    if os.path.exists(SEATS_FILE):
+        try:
+            with open(SEATS_FILE, 'r', encoding='utf-8') as f:
+                seat_boxes = json.load(f)
+        except Exception as e:
+            cl_logger.warning(f"No se pudo cargar {SEATS_FILE}: {e}")
+            seat_boxes = []
+    else:
+        seat_boxes = []
+    # Cargar asignaciones si existen
+    if os.path.exists(SEAT_ASSIGNMENTS_FILE):
+        try:
+            with open(SEAT_ASSIGNMENTS_FILE, 'r', encoding='utf-8') as f:
+                seat_assignments.update(json.load(f))
+        except Exception:
+            seat_assignments.clear()
+    else:
+        seat_assignments.clear()
+    # Inicializar contadores de participaciones
+    participation_counts.clear()
+    for seat in seat_boxes:
+        participation_counts[seat.get('seat_id')] = 0
+
+# --- Funciones auxiliares para asientos ---
+
+def save_seat_boxes():
+    """Guarda la lista global de seat_boxes en el archivo SEATS_FILE.
+
+    También asegura que exista el directorio de datos.
+    """
+    try:
+        os.makedirs(os.path.dirname(SEATS_FILE), exist_ok=True)
+        with open(SEATS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(seat_boxes, f, indent=4)
+        cl_logger.info(f"Asientos guardados en {SEATS_FILE}.")
+    except Exception as e:
+        cl_logger.warning(f"No se pudo guardar los asientos: {e}")
+
+
+def get_seat_boxes():
+    """Devuelve la lista actual de asientos.
+
+    Carga la configuración si aún no se ha inicializado.
+    """
+    if not seat_boxes:
+        load_seat_config()
+    return seat_boxes
+
+
+def get_seat_assignments():
+    """Devuelve las asignaciones de asientos actuales."""
+    if not seat_assignments:
+        load_seat_config()
+    return seat_assignments
+
+
+def add_seat_box(x: int, y: int, w: int, h: int) -> str:
+    """Agrega un nuevo asiento a la configuración.
+
+    El identificador de asiento se genera automáticamente como "Pupitre N",
+    donde N es el número siguiente basado en la longitud de seat_boxes.
+    Se actualiza inmediatamente la configuración en disco y las asignaciones.
+
+    Args:
+        x, y, w, h (int): Coordenadas y tamaño del rectángulo en píxeles.
+
+    Returns:
+        str: El seat_id generado para el nuevo asiento.
+    """
+    # Asegurar que la configuración esté cargada
+    if not seat_boxes:
+        load_seat_config()
+    seat_id = f"Pupitre {len(seat_boxes) + 1}"
+    seat_boxes.append({"seat_id": seat_id, "rect": [int(x), int(y), int(w), int(h)]})
+    # Inicializar contador y asignación
+    participation_counts[seat_id] = 0
+    seat_assignments[seat_id] = None
+    # Guardar a disco
+    save_seat_boxes()
+    save_seat_assignments()
+    return seat_id
+
+
+def remove_last_seat_box() -> bool:
+    """Elimina el último asiento de la lista y actualiza disco.
+
+    Returns:
+        bool: True si se eliminó un asiento, False si no había asientos.
+    """
+    if not seat_boxes:
+        return False
+    removed = seat_boxes.pop()
+    sid = removed.get('seat_id')
+    # Eliminar asignación y contador
+    seat_assignments.pop(sid, None)
+    participation_counts.pop(sid, None)
+    # Guardar cambios
+    save_seat_boxes()
+    save_seat_assignments()
+    cl_logger.info(f"Se eliminó la caja de asiento {sid}")
+    return True
+
+
+def start_calibration_monitor() -> dict:
+    """Inicia el monitor de calibración de asientos.
+
+    Retorna un diccionario de éxito similar a otros monitores para ser
+    consumido por el frontend.  Si otro monitor (asistencia o pose)
+    está activo, no se inicia.
+    """
+    global calibration_monitor_active
+    if calibration_monitor_active or attendance_monitoring_active or pose_monitoring_active:
+        return {"success": False, "message": "Otro monitoreo ya está activo."}
+    calibration_monitor_active = True
+    cl_logger.info("Monitoreo de calibración iniciado.")
+    return {"success": True, "message": "Monitoreo de calibración iniciado."}
+
+
+def stop_calibration_monitor() -> dict:
+    """Detiene el monitor de calibración de asientos."""
+    global calibration_monitor_active
+    calibration_monitor_active = False
+    cl_logger.info("Monitoreo de calibración detenido.")
+    return {"success": True, "message": "Monitoreo de calibración detenido."}
+
+
+def generate_calibrate_frames():
+    """Genera frames con las cajas de asientos superpuestas para calibración.
+
+    Este generador se utiliza para transmitir en streaming las imágenes de la
+    cámara con las cajas de asientos dibujadas.  Requiere que el monitor de
+    calibración esté activo.  Cada iteración verifica seat_boxes para
+    reflejar cambios en tiempo real.
+    """
+    global calibration_monitor_active
+    # Cargar asientos iniciales
+    load_seat_config()
+    cap = cv2.VideoCapture(0)
+    cl_logger.info("Iniciando stream de CALIBRACIÓN.")
+    while cap.isOpened() and calibration_monitor_active:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_display = cv2.flip(frame, 1)
+        # Dibujar cajas de asientos
+        for seat in seat_boxes:
+            x, y, w_s, h_s = seat.get('rect')
+            sid = seat.get('seat_id')
+            cv2.rectangle(frame_display, (x, y), (x + w_s, y + h_s), (0, 255, 0), 2)
+            cv2.putText(frame_display, sid, (x, max(0, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # Codificar y enviar frame
+        _, buffer = cv2.imencode('.jpg', frame_display)
+        yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+    cap.release()
+    cl_logger.info("Stream de CALIBRACIÓN detenido.")
+
+
+def save_seat_assignments():
+    """Guarda las asignaciones de asientos en disco."""
+    try:
+        os.makedirs(os.path.dirname(SEAT_ASSIGNMENTS_FILE), exist_ok=True)
+        with open(SEAT_ASSIGNMENTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(seat_assignments, f, indent=4)
+    except Exception as e:
+        cl_logger.warning(f"No se pudo guardar asignaciones en {SEAT_ASSIGNMENTS_FILE}: {e}")
+
+
+def assign_student_to_seat(student_id: str, seat_id: str) -> bool:
+    """Asigna un estudiante a un asiento.
+
+    Args:
+        student_id: ID del estudiante registrado en la base de datos.
+        seat_id: Identificador del asiento según data/seats.json.
+
+    Returns:
+        True si la asignación se realizó correctamente, False si el asiento no
+        existe.
+    """
+    # Verificar que exista el asiento
+    if not any(s.get('seat_id') == seat_id for s in seat_boxes):
+        return False
+    # Permitir desasignar si student_id es vacío o None
+    if not student_id:
+        seat_assignments.pop(seat_id, None)
+    else:
+        seat_assignments[seat_id] = student_id
+    save_seat_assignments()
+    return True
+
+
+def award_participation_for_seat(seat_id: str) -> bool:
+    """Otorga un punto de participación al estudiante asignado al asiento.
+
+    Se respetará un tiempo de espera (PARTICIPATION_COOLDOWN) entre
+    participaciones consecutivas para un mismo asiento.  El contador de
+    participation_counts se incrementará, y se insertará un registro en la
+    base de datos si existe un estudiante asignado y el periodo de clase es
+    válido.
+
+    Args:
+        seat_id: Identificador del asiento.
+
+    Returns:
+        True si se otorgó la participación, False si no se cumple el cooldown
+        o no hay estudiante asignado.
+    """
+    now = datetime.datetime.now()
+    last = seat_last_participation_time.get(seat_id)
+    if last and (now - last).total_seconds() < PARTICIPATION_COOLDOWN:
+        return False  # Cooldown activo
+    # Actualizar timestamp
+    seat_last_participation_time[seat_id] = now
+    # Incrementar contador local
+    if seat_id not in participation_counts:
+        participation_counts[seat_id] = 0
+    participation_counts[seat_id] += 1
+    # Registrar en base de datos si hay estudiante y período válido
+    student_id = seat_assignments.get(seat_id)
+    if student_id:
+        periodo, _ = get_current_attendance_period()
+        if periodo:
+            database.record_participation(student_id, periodo)
+    return True
 
 def register_student_from_camera(student_id, nombre, apellido):
     if database.get_student_by_id(student_id):
@@ -191,26 +460,40 @@ def movenet(input_image):
 
 def generate_pose_frames():
     global pose_monitoring_active
-    if not MOVENET_MODEL: return
+    if not MOVENET_MODEL:
+        return
+    # Cargar configuración de asientos al iniciar el streaming
+    load_seat_config()
     cap = cv2.VideoCapture(0)
     cl_logger.info("Iniciando stream de POSE.")
     while cap.isOpened() and pose_monitoring_active:
         ret, frame = cap.read()
-        if not ret: break
+        if not ret:
+            break
         frame_display = cv2.flip(frame, 1)
         h, w, _ = frame_display.shape
-        
+
+        # Ejecutar MoveNet para obtener keypoints de múltiples personas
         results = movenet(np.expand_dims(frame_display, axis=0))
-        
+
+        # Para determinar la mano más alta de cualquier persona en este frame
+        highest_hand = None  # (x_px, y_px)
+
         for person in np.squeeze(results):
-            if person[55] < 0.35: continue
+            # Filtrar por puntuación de confianza de la persona (último valor)
+            if person[55] < 0.35:
+                continue
             keypoints = person[:51].reshape((17, 3))
-            
+
+            # Dibujar el esqueleto de la persona
             for edge in EDGES:
-                p1, p2 = edge; y1, x1, c1 = keypoints[p1]; y2, x2, c2 = keypoints[p2]
+                p1, p2 = edge
+                y1, x1, c1 = keypoints[p1]
+                y2, x2, c2 = keypoints[p2]
                 if c1 > 0.3 and c2 > 0.3:
                     cv2.line(frame_display, (int(x1 * w), int(y1 * h)), (int(x2 * w), int(y2 * h)), (255, 255, 0), 2)
 
+            # Calcular si la mano izquierda o derecha está levantada
             left_wrist_y, left_wrist_x, left_wrist_c = keypoints[KEYPOINT_DICT['left_wrist']]
             left_shoulder_y, _, left_shoulder_c = keypoints[KEYPOINT_DICT['left_shoulder']]
             right_wrist_y, right_wrist_x, right_wrist_c = keypoints[KEYPOINT_DICT['right_wrist']]
@@ -220,17 +503,64 @@ def generate_pose_frames():
             right_hand_up = right_wrist_c > 0.3 and right_shoulder_c > 0.3 and right_wrist_y < right_shoulder_y
 
             if left_hand_up or right_hand_up:
-                text_pos_y = float('inf'); text_pos_x = 0
+                # Tomar la mano más alta para determinar participación
                 if left_hand_up:
                     lx_px, ly_px = int(left_wrist_x * w), int(left_wrist_y * h)
                     cv2.circle(frame_display, (lx_px, ly_px), 20, (0, 255, 255), 5)
-                    if ly_px < text_pos_y: text_pos_y, text_pos_x = ly_px, lx_px
+                    if highest_hand is None or ly_px < highest_hand[1]:
+                        highest_hand = (lx_px, ly_px)
                 if right_hand_up:
                     rx_px, ry_px = int(right_wrist_x * w), int(right_wrist_y * h)
                     cv2.circle(frame_display, (rx_px, ry_px), 20, (0, 255, 255), 5)
-                    if ry_px < text_pos_y: text_pos_y, text_pos_x = ry_px, rx_px
-                cv2.putText(frame_display, "Participando!", (text_pos_x - 50, text_pos_y - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+                    if highest_hand is None or ry_px < highest_hand[1]:
+                        highest_hand = (rx_px, ry_px)
 
+        # Si se detectó una mano levantada en este frame, intentar asignar a un asiento
+        if highest_hand is not None and seat_boxes:
+            hx_px, hy_px = highest_hand
+            # Determinar el asiento con el que colisiona la mano (x,y dentro de la caja verticalmente sobre el asiento)
+            selected_seat_id = None
+            for seat in seat_boxes:
+                x, y, w_s, h_s = seat.get('rect')
+                seat_id = seat.get('seat_id')
+                # Considerar la mano como participación si está por encima del top del asiento y en rango horizontal
+                if hx_px >= x and hx_px <= x + w_s and hy_px <= y + h_s:
+                    selected_seat_id = seat_id
+                    break
+            if selected_seat_id:
+                # Otorgar participación para el asiento seleccionado
+                if award_participation_for_seat(selected_seat_id):
+                    # Dibujar indicación de participación
+                    cv2.putText(frame_display, f"{selected_seat_id} +1", (hx_px - 40, hy_px - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+
+        # Dibujar boxes de asientos y etiquetas
+        for seat in seat_boxes:
+            sx, sy, sw, sh = seat.get('rect')
+            sid = seat.get('seat_id')
+            # Determinar color según si hay mano actual en este asiento
+            color = (0, 255, 0)
+            # Obtener nombre del estudiante
+            student_id = seat_assignments.get(sid)
+            student_name = ""
+            if student_id:
+                try:
+                    student = database.get_student_by_id(student_id)
+                    if student:
+                        student_name = f"{student.get('nombre')} {student.get('apellido', '')}".strip()
+                except Exception:
+                    student_name = ""
+            pts = participation_counts.get(sid, 0)
+            # Dibujar el rectángulo del asiento
+            cv2.rectangle(frame_display, (sx, sy), (sx + sw, sy + sh), color, 2)
+            # Construir la etiqueta
+            label_parts = [sid]
+            if student_name:
+                label_parts.append(student_name)
+            label_parts.append(f"Pts:{pts}")
+            label = " | ".join(label_parts)
+            cv2.putText(frame_display, label, (sx, max(0, sy - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+        # Generar frame MJPEG
         _, buffer = cv2.imencode('.jpg', frame_display)
         yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
