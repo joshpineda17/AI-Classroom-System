@@ -1,0 +1,69 @@
+<!-- templates/quick_scan.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escaneo Rápido | AI‑Classroom</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-dark text-white">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark-custom shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="fas fa-brain me-2"></i>AI‑Classroom</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/groups">Formar Grupos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/calibrate_seats">Calibrar Asientos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/assign_seats">Asignar Asientos</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/quick_scan">Escaneo Rápido</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="action-toast" class="toast align-items-center text-bg-primary border-0 position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 1100;">
+            <div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-lg-6 col-md-8">
+                <div class="card card-custom p-4 text-center">
+                    <h3 class="mb-3"><i class="fas fa-id-card me-2"></i>Escaneo Rápido de Asistencia</h3>
+                    <p class="mb-4">Pulse el botón para escanear el rostro del estudiante. Tras el escaneo, confirme si la persona reconocida es correcta.</p>
+                    
+<div class="mb-3 text-center">
+    <video id="cameraPreview" autoplay playsinline muted style="max-width: 100%; border-radius: 12px; border: 1px solid var(--border-color); display:none;"></video>
+</div>
+<div id="scanSection"
+ class="my-4">
+                        <button id="startScanBtn" class="btn btn-primary btn-lg"><i class="fas fa-camera me-2"></i>Iniciar Escaneo</button>
+                    </div>
+                    <div id="scanMessage" class="my-2"></div>
+                    <div id="scanResult" class="my-4 d-none">
+                        <h4 id="recognizedName" class="mb-3"></h4>
+                        <p>¿Es correcta esta persona?</p>
+                        <div id="confirmButtons" class="mb-3">
+                            <button id="confirmYes" class="btn btn-success me-2">Sí</button>
+                            <button id="confirmNo" class="btn btn-danger">No</button>
+                        </div>
+                        <div id="manualSelect" class="d-none mb-3">
+                            <label for="manualStudent" class="form-label">Seleccione el estudiante:</label>
+                            <select id="manualStudent" class="form-select mb-2"></select>
+                            <button id="confirmManual" class="btn btn-success mt-2">Confirmar</button>
+                        </div>
+                        <button id="rescanBtn" class="btn btn-secondary mt-3"><i class="fas fa-redo me-2"></i>Reintentar</button>
+                    </div>
+                    <a href="/dashboard" class="btn btn-secondary mt-4"><i class="fas fa-arrow-left me-2"></i>Volver al Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='quick_scan.js') }}"></script>
+</body>
+</html>

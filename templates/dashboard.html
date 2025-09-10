@@ -1,113 +1,243 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | AI-Classroom</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard | AI-Classroom</title>
+
+  <!-- Tailwind + Lucide -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@700;800&display=swap" rel="stylesheet"/>
+
+  <!-- Bootstrap CSS (necesario para toasts/modals que usa dashboard.js) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <!-- Font Awesome para los íconos que inserta el backend en las tablas -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet"/>
+
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    .menu{position:absolute;right:0;margin-top:.5rem;width:12rem;border-radius:.75rem;background:#fff;box-shadow:0 10px 30px -10px rgba(0,0,0,.3);border:1px solid rgba(0,0,0,.06);padding:.25rem;display:none}
+    .menu button{width:100%;text-align:left;padding:.5rem .75rem;border-radius:.5rem}
+    .menu button:hover{background:#f1f5f9}
+    .card-scroll{height:100%;display:flex;flex-direction:column;overflow:hidden;border-radius:1rem}
+    .card-scroll header{position:sticky;top:0;z-index:1;background:#fff}
+    .card-scroll .body{min-height:0;overflow:auto}
+  </style>
 </head>
-<body class="bg-dark text-white">
+<body class="min-h-screen bg-gradient-to-b from-indigo-600 to-blue-600">
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark-custom shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/"><i class="fas fa-brain me-2"></i>AI-Classroom</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link active" href="/dashboard">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/groups">Formar Grupos</a></li>
-                    <!-- Nuevas pestañas para calibrar y asignar asientos -->
-                    <li class="nav-item"><a class="nav-link" href="/calibrate_seats">Calibrar Asientos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/assign_seats">Asignar Asientos</a></li>
-                </ul>
-            </div>
-        </div>
+  <!-- RAIL / SIDEBAR -->
+  <aside class="fixed left-0 top-0 z-40 h-full w-16 bg-white text-indigo-700 border-r">
+    <div class="flex h-16 items-center justify-center border-b">
+      <button id="toggleSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Abrir menú">
+        <i data-lucide="menu" class="w-6 h-6 [stroke-width:2.25]"></i>
+      </button>
+    </div>
+    <nav class="mt-3 flex flex-col items-center gap-3">
+      <a href="/" title="Registrar Estudiante" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="user-plus" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+      <a href="/dashboard" title="Dashboard" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="gauge" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+      <a href="/groups" title="Formar grupos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="users" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+      <a href="/calibrate_seats" title="Calibrar asientos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="crosshair" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+      <a href="/assign_seats" title="Asignar asientos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="layout-grid" class="w-5 h-5 [stroke-width:2.25]"></i></a>
     </nav>
+  </aside>
 
-    <div class="container mt-4">
-        <div id="action-toast" class="toast align-items-center text-bg-primary border-0 position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 1100;">
-            <div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
-        </div>
-
-        <div class="row mb-4">
-            <div class="col-lg-4 mb-3"><div class="card card-custom h-100"><div class="card-body"><div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Asistencia Facial</h5><div id="attendance-status" class="fs-5 fw-bold text-danger"><i class="fas fa-circle me-2"></i>Inactivo</div></div><div class="d-grid gap-2"><button id="startAttendanceBtn" class="btn btn-outline-success">Iniciar</button><button id="stopAttendanceBtn" class="btn btn-outline-danger">Detener</button></div></div></div></div>
-            <div class="col-lg-4 mb-3"><div class="card card-custom h-100"><div class="card-body"><div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0"><i class="fas fa-child-reaching me-2"></i>Postura y Gestos</h5><div id="pose-status" class="fs-5 fw-bold text-danger"><i class="fas fa-circle me-2"></i>Inactivo</div></div><div class="d-grid gap-2"><button id="startPoseBtn" class="btn btn-outline-success">Iniciar</button><button id="stopPoseBtn" class="btn btn-outline-danger">Detener</button></div></div></div></div>
-            <div class="col-lg-4 mb-3">
-                <div class="card card-custom h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0"><i class="fas fa-microphone-alt me-2"></i>Grabar Clase</h5>
-                            <div id="recording-status" class="fs-5 fw-bold text-danger"><i class="fas fa-circle me-2"></i>Inactivo</div>
-                        </div>
-                        <div class="input-group mb-3">
-                            <label class="input-group-text" for="whisperModelSelect">Modelo</label>
-                            <select class="form-select" id="whisperModelSelect">
-                                <option value="base" selected>Básico (Rápido)</option>
-                                <option value="small">Pequeño</option>
-                                <option value="medium">Mediano (Preciso)</option>
-                            </select>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button id="startRecordingBtn" class="btn btn-outline-success">Grabar</button>
-                            <button id="stopRecordingBtn" class="btn btn-outline-danger">Detener y Transcribir</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card card-custom mb-4">
-            <div class="card-header header-custom text-warning-custom"><h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Transcripciones de Clase</h5></div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-dark-custom" id="transcriptionsTable">
-                        <thead><tr><th>Clase</th><th>Fecha</th><th>Duración</th><th>Acciones</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-lg-6">
-                <div class="card card-custom mb-4"><div class="card-header header-custom text-primary-custom"><h5 class="mb-0">Asistencia de Hoy</h5></div><div class="card-body"><table class="table table-dark-custom" id="attendanceSummaryTable"><thead><tr><th>Período</th><th>Asistentes</th></tr></thead><tbody></tbody></table></div></div>
-                <div class="card card-custom mb-4"><div class="card-header header-custom text-success-custom"><h5 class="mb-0">Participación de Hoy</h5></div><div class="card-body"><table class="table table-dark-custom" id="participationSummaryTable"><thead><tr><th>Período</th><th>Participantes</th><th>Total</th></tr></thead><tbody></tbody></table></div></div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card card-custom mb-4"><div class="card-header header-custom text-info-custom"><h5 class="mb-0">Estudiantes Registrados</h5></div><div class="card-body"><div class="table-responsive" style="max-height: 450px;"><table class="table table-dark-custom table-hover" id="studentListTable"><thead><tr><th>ID</th><th>Nombre</th><th>Registro</th><th>Acciones</th></tr></thead><tbody></tbody></table></div></div></div>
-            </div>
-        </div>
+  <!-- PANEL lateral -->
+  <div id="sidebarPanel" class="fixed top-0 left-16 z-30 h-full w-[0px] overflow-hidden bg-white text-indigo-700 border-r transition-[width] duration-300 ease-out">
+    <div class="flex items-center justify-end px-4 py-4 border-b">
+      <button id="closeSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Cerrar">
+        <i data-lucide="x" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </button>
     </div>
-    
-    <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content bg-dark-custom">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title" id="videoModalLabel">Monitoreo en Vivo</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <img id="videoFeed" src="" class="img-fluid" alt="Live Stream">
-                </div>
-            </div>
-        </div>
+    <nav class="px-2 py-3 space-y-1">
+      <a href="/" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Registrar Estudiante</span></a>
+      <a href="/dashboard" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Dashboard</span></a>
+      <a href="/groups" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Formar grupos</span></a>
+      <a href="/calibrate_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Calibrar asientos</span></a>
+      <a href="/assign_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Asignar asientos</span></a>
+    </nav>
+    <div class="absolute inset-x-0 bottom-0 border-t px-3 py-3">
+      <div class="flex h-10 items-center gap-2 text-indigo-700 px-1">
+        <i data-lucide="brain" class="w-6 h-6 [stroke-width:2.25]"></i>
+        <span class="label leading-none font-lato font-extrabold opacity-0 -translate-x-2 transition-all duration-300">AI-Classroom</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main id="main" class="ml-16 min-h-screen px-5 py-6 flex flex-col overflow-hidden">
+    <div id="action-toast" class="toast position-fixed top-4 right-4 z-50 bg-indigo-600 text-white rounded-lg px-4 py-3" role="alert" aria-live="assertive" aria-atomic="true" style="display:none">
+      <div class="toast-body"></div>
     </div>
 
-    <div class="modal fade" id="enhancedTextModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content bg-dark-custom">
-                <div class="modal-header">
-                    <h5 class="modal-title">Transcripción Mejorada con IA ✨</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="enhancedTextBody">
-                </div>
+    <!-- FILA 1: 3-3-3 -->
+    <section id="ctrlRow" class="grid grid-cols-9 gap-4 flex-none">
+      <div class="col-span-9 md:col-span-3 rounded-2xl bg-white shadow-card p-4">
+        <header class="flex items-center justify-between">
+          <h3 class="font-semibold flex items-center gap-2 text-slate-800"><i data-lucide="user-check" class="w-5 h-5"></i>Asistencia Facial</h3>
+          <div class="flex items-center gap-2">
+            <button id="startAttendanceBtn" class="rounded-xl bg-indigo-600 text-white text-sm px-4 py-2">Iniciar</button>
+            <button id="stopAttendanceBtn" class="rounded-xl bg-red-600 text-white text-sm px-4 py-2 hidden">Detener</button>
+          </div>
+        </header>
+      </div>
+
+      <div class="col-span-9 md:col-span-3 rounded-2xl bg-white shadow-card p-4">
+        <header class="flex items-center justify-between">
+          <h3 class="font-semibold flex items-center gap-2 text-slate-800"><i data-lucide="accessibility" class="w-5 h-5"></i>Posturas y gestos</h3>
+          <div class="flex items-center gap-2">
+            <button id="startPoseBtn" class="rounded-xl bg-indigo-600 text-white text-sm px-4 py-2">Iniciar</button>
+            <button id="stopPoseBtn" class="rounded-xl bg-red-600 text-white text-sm px-4 py-2 hidden">Detener</button>
+          </div>
+        </header>
+      </div>
+
+      <div class="col-span-9 md:col-span-3 rounded-2xl bg-white shadow-card p-4">
+        <header class="flex items-center justify-between gap-3">
+          <h3 class="font-semibold flex items-center gap-2 text-slate-800"><i data-lucide="mic" class="w-5 h-5"></i>Grabar clase</h3>
+          <div class="relative">
+            <button id="modelBtn" type="button" class="rounded-xl border px-3 py-2 text-sm flex items-center gap-2">
+              <i data-lucide="cpu" class="w-4 h-4"></i><span id="modelBtnLabel">Modelo: Básico</span><i data-lucide="chevron-down" class="w-4 h-4"></i>
+            </button>
+            <div id="modelMenu" class="menu">
+              <button data-model="base">Básico (Rápido)</button>
+              <button data-model="small">Pequeño</button>
+              <button data-model="medium">Mediano (Preciso)</button>
             </div>
+            <select id="whisperModelSelect" class="hidden">
+              <option value="base" selected>Básico (Rápido)</option>
+              <option value="small">Pequeño</option>
+              <option value="medium">Mediano (Preciso)</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="startRecordingBtn" class="rounded-xl bg-indigo-600 text-white text-sm px-4 py-2">Iniciar</button>
+            <button id="stopRecordingBtn" class="rounded-xl bg-red-600 text-white text-sm px-4 py-2 hidden">Detener</button>
+          </div>
+        </header>
+      </div>
+    </section>
+
+    <!-- GRID principal -->
+    <section id="gridMain" class="mt-4 grid grid-cols-9 gap-4 flex-1 overflow-hidden">
+      <div class="col-span-9 md:col-span-5 row-start-1 row-span-2 bg-white shadow-card card-scroll">
+        <header class="px-4 py-3 border-b font-semibold flex items-center gap-2">
+          <i data-lucide="captions" class="w-5 h-5"></i>Transcripción de clases
+        </header>
+        <div class="body p-4 overflow-x-auto">
+          <table id="transcriptionsTable" class="w-full text-sm">
+            <thead class="text-gray-500 border-b">
+              <tr><th class="text-left py-2">Clase</th><th class="text-left">Fecha</th><th class="text-left">Duración</th><th class="text-right">Acciones</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
+      </div>
+
+      <div class="col-span-9 md:col-span-4 row-start-1 row-span-1 bg-white shadow-card card-scroll">
+        <header class="px-4 py-3 border-b font-semibold flex items-center gap-2">
+          <i data-lucide="calendar-check" class="w-5 h-5"></i>Asistencia
+        </header>
+        <div class="body p-4 overflow-x-auto">
+          <table id="attendanceSummaryTable" class="w-full text-sm">
+            <thead class="text-gray-500 border-b"><tr><th class="text-left py-2">Período</th><th class="text-left">Asistencia</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="col-span-9 md:col-span-5 row-start-3 row-span-1 bg-white shadow-card card-scroll">
+        <header class="px-4 py-3 border-b font-semibold flex items-center gap-2">
+          <i data-lucide="hand" class="w-5 h-5"></i>Participación
+        </header>
+        <div class="body p-4 overflow-x-auto">
+          <table id="participationSummaryTable" class="w-full text-sm">
+            <thead class="text-gray-500 border-b"><tr><th class="text-left py-2">Período</th><th class="text-left">Asistencia</th><th class="text-left">Total</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="col-span-9 md:col-span-4 row-start-2 row-span-2 bg-white shadow-card card-scroll">
+        <header class="px-4 py-3 border-b font-semibold flex items-center gap-2">
+          <i data-lucide="notebook-pen" class="w-5 h-5"></i>Estudiantes registrados
+        </header>
+        <div class="body p-4 overflow-x-auto">
+          <table id="studentListTable" class="w-full text-sm">
+            <thead class="text-gray-500 border-b">
+              <tr><th class="text-left py-2">ID</th><th class="text-left">Nombre</th><th class="text-left">Registro</th><th class="text-right">Acciones</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modales Bootstrap fuera del MAIN -->
+  <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="videoModalLabel">Monitoreo en Vivo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-0"><img id="videoFeed" src="" class="img-fluid" alt="Live Stream"></div>
+      </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+  </div>
+
+  <div class="modal fade" id="enhancedTextModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Transcripción Mejorada con IA ✨</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="enhancedTextBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (debe ir antes de dashboard.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Layout JS -->
+  <script>
+    lucide.createIcons();
+
+    const railWidth=64,panel=document.getElementById('sidebarPanel'),main=document.getElementById('main'),
+          openBtn=document.getElementById('toggleSidebar'),closeBtn=document.getElementById('closeSidebar'),
+          labels=[...document.querySelectorAll('#sidebarPanel .label')];
+    let open=false; const targetWidth=()=>Math.max(Math.min(window.innerWidth/5,420),260);
+    function staggerLabels(s){labels.forEach((el,i)=>setTimeout(()=>{el.classList.toggle('opacity-0',!s);el.classList.toggle('-translate-x-2',!s);el.classList.toggle('opacity-100',s);el.classList.toggle('translate-x-0',s)},i*50))}
+    function layout(){const w=open?targetWidth():0;panel.style.width=w+'px';main.style.marginLeft=(railWidth+w)+'px';const onEnd=e=>{if(e.propertyName==='width'){staggerLabels(open);panel.removeEventListener('transitionend',onEnd)}};panel.addEventListener('transitionend',onEnd)}
+    openBtn.addEventListener('click',()=>{open=!open;layout()});closeBtn.addEventListener('click',()=>{open=false;layout()});window.addEventListener('resize',()=>{if(open)layout()});staggerLabels(false);layout();
+
+    function sizeGrid(){
+      const gm = document.getElementById('gridMain');
+      const top = gm.getBoundingClientRect().top;
+      gm.style.height = (window.innerHeight - top - 16) + 'px';
+      document.querySelectorAll('.card-scroll').forEach(e=>{ e.style.height = '100%'; });
+    }
+    window.addEventListener('load', sizeGrid);
+    window.addEventListener('resize', sizeGrid);
+
+    /* Menú 3 puntos: se construirá cuando el backend pinte acciones, si decides activarlo */
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('.kebab');
+      if(btn){
+        const menu=btn.parentElement.querySelector('.menu');
+        document.querySelectorAll('.menu').forEach(m=>{if(m!==menu)m.style.display='none'});
+        menu.style.display=menu.style.display==='block'?'none':'block';
+        e.stopPropagation();
+      }
+    });
+    document.addEventListener('click',()=>document.querySelectorAll('.menu').forEach(m=>m.style.display='none'));
+  </script>
+
+  <!-- Backend -->
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

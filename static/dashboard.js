@@ -192,7 +192,6 @@ document.addEventListener('DOMContentLoaded', function () {
         loadStudentList();
         loadTranscriptions();
     }
-
     loadAllData();
     updateStatusIndicators();
     

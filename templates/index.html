@@ -1,90 +1,211 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenido | AI-Classroom</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme:{ extend:{ fontFamily:{ lato:['Lato','ui-sans-serif','system-ui'] },
+                       boxShadow:{ card:'0 20px 40px -20px rgba(0,0,0,.35)'} } }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@700;800&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <title>Bienvenido | AI-Classroom</title>
 </head>
-<body>
-    <div class="container d-flex justify-content-center align-items-center min-vh-100">
-        <div class="card card-custom p-4 shadow" style="max-width: 500px; width: 100%;">
-            <div class="card-body">
-                <h2 class="card-title text-center text-primary-custom mb-4"><i class="fas fa-brain me-2"></i>AI-Classroom</h2>
-                <p class="text-center text-muted mb-4">Sistema Inteligente de Gestión de Aula</p>
+<body class="min-h-screen bg-gradient-to-b from-indigo-600 to-blue-600">
 
-                <form id="registerForm">
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control" id="student_id" name="student_id" placeholder="ID de Estudiante" required>
-                        <label for="student_id">ID de Estudiante / Carnet</label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombre" required>
-                        <label for="nombre">Nombre</label>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input type="text" class="form-control" id="apellido" name="apellido" placeholder="Apellido" required>
-                        <label for="apellido">Apellido</label>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-camera me-2"></i>Iniciar Registro</button>
-                    </div>
-                </form>
-                <div id="registerMessage" class="mt-3"></div>
-                <hr class="my-4">
-                <div class="text-center">
-                    <a href="/dashboard" class="btn btn-outline-secondary"><i class="fas fa-tachometer-alt me-2"></i>Dashboard del Profesor</a>
-                </div>
-            </div>
-        </div>
+  <!-- RAIL: íconos SIEMPRE visibles (sin sombra) -->
+  <aside class="fixed left-0 top-0 z-40 h-full w-16 bg-white text-indigo-700 border-r">
+    <div class="flex h-16 items-center justify-center border-b">
+      <button id="toggleSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Abrir menú">
+        <i data-lucide="menu" class="w-6 h-6 [stroke-width:2.25]"></i>
+      </button>
+    </div>
+    <nav class="mt-3 flex flex-col items-center gap-3">
+      <a href="/" title="Registrar Estudiante" class="p-2 rounded-md hover:bg-indigo-50">
+        <i data-lucide="user-plus" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </a>
+      <a href="/dashboard" title="Dashboard" class="p-2 rounded-md hover:bg-indigo-50">
+        <i data-lucide="gauge" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </a>
+      <a href="/groups" title="Formar grupos" class="p-2 rounded-md hover:bg-indigo-50">
+        <i data-lucide="users" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </a>
+      <a href="/calibrate_seats" title="Calibrar asientos" class="p-2 rounded-md hover:bg-indigo-50">
+        <i data-lucide="crosshair" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </a>
+      <a href="/assign_seats" title="Asignar asientos" class="p-2 rounded-md hover:bg-indigo-50">
+        <i data-lucide="layout-grid" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- PANEL: solo labels, SIN sombra, con borde -->
+  <div id="sidebarPanel"
+       class="fixed top-0 left-16 z-30 h-full w-[0px] overflow-hidden bg-white text-indigo-700 border-r
+              transition-[width] duration-300 ease-out">
+    <div class="flex items-center justify-end px-4 py-4 border-b">
+      <button id="closeSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Cerrar">
+        <i data-lucide="x" class="w-5 h-5 [stroke-width:2.25]"></i>
+      </button>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const registerForm = document.getElementById('registerForm');
-            const registerMessage = document.getElementById('registerMessage');
-            const submitButton = registerForm.querySelector('button[type="submit"]');
+<nav class="px-2 py-3 space-y-1">
+  <a href="/" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+    <span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">
+      Registrar Estudiante
+    </span>
+  </a>
+  <a href="/dashboard" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+    <span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">
+      Dashboard
+    </span>
+  </a>
+  <a href="/groups" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+    <span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">
+      Formar grupos
+    </span>
+  </a>
+  <a href="/calibrate_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+    <span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">
+      Calibrar asientos
+    </span>
+  </a>
+  <a href="/assign_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+    <span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">
+      Asignar asientos
+    </span>
+  </a>
+</nav>
 
-            function showMessage(element, message, type) {
-                element.innerHTML = `<div class="alert alert-${type}" role="alert">${message}</div>`;
-            }
+<!-- Marca al pie -->
+    <div class="absolute inset-x-0 bottom-0 border-t px-3 py-3">
+      <div class="flex h-10 items-center gap-2 text-indigo-700 px-1">
+        <i data-lucide="brain" class="w-6 h-6 [stroke-width:2.25]"></i>
+        <span class="label leading-none font-lato font-extrabold opacity-0 -translate-x-2 transition-all duration-300">
+          AI-Classroom
+        </span>
+      </div>
+    </div>
+  </div>
 
-            registerForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-                const originalButtonText = submitButton.innerHTML;
-                submitButton.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Procesando...`;
-                submitButton.disabled = true;
-                
-                showMessage(registerMessage, '<strong>Iniciando registro...</strong> Por favor, mira la ventana de la cámara que se abrirá en tu computadora.', 'info');
+  <!-- MAIN -->
+  <main id="main" class="ml-16 transition-all duration-300 ease-out min-h-screen flex items-center justify-center px-6">
+    <div class="w-full max-w-3xl rounded-[28px] bg-indigo-200/80 p-10 shadow-card ring-1 ring-white/30 backdrop-blur-sm">
+      <div class="mb-8 flex items-center justify-center gap-3">
+        <i data-lucide="brain" class="w-9 h-9 text-indigo-700 [stroke-width:2.5]"></i>
+        <h1 class="font-lato text-3xl font-extrabold text-indigo-700">AI-Classroom</h1>
+      </div>
 
-                try {
-                    const response = await fetch('/register', {
-                        method: 'POST',
-                        body: new FormData(registerForm)
-                    });
-                    const data = await response.json();
+      <form id="registerForm" class="space-y-6">
+        <div>
+          <label for="student_id" class="mb-2 block text-lg text-slate-900">ID Estudiante</label>
+          <input id="student_id" name="student_id" type="text" required
+                 class="w-full rounded-full bg-white px-5 py-3 text-slate-900 shadow-inner outline-none ring-1 ring-white/40 focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label for="nombre" class="mb-2 block text-lg text-slate-900">Nombre</label>
+          <input id="nombre" name="nombre" type="text" required
+                 class="w-full rounded-full bg-white px-5 py-3 text-slate-900 shadow-inner outline-none ring-1 ring-white/40 focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label for="apellido" class="mb-2 block text-lg text-slate-900">Apellido</label>
+          <input id="apellido" name="apellido" type="text" required
+                 class="w-full rounded-full bg-white px-5 py-3 text-slate-900 shadow-inner outline-none ring-1 ring-white/40 focus:ring-2 focus:ring-indigo-500" />
+        </div>
 
-                    if (data.success) {
-                        showMessage(registerMessage, `<strong>Éxito:</strong> ${data.message}`, 'success');
-                        if (data.action === 'redirect_questionnaire') {
-                            setTimeout(() => {
-                                window.location.href = `/questionnaire/${data.student_id}`;
-                            }, 2000);
-                        }
-                    } else {
-                        showMessage(registerMessage, `<strong>Error:</strong> ${data.message}`, 'danger');
-                    }
-                } catch (error) {
-                    showMessage(registerMessage, '<strong>Error de Conexión:</strong> No se pudo conectar con el servidor.', 'danger');
-                } finally {
-                    submitButton.innerHTML = originalButtonText;
-                    submitButton.disabled = false;
-                }
-            });
-        });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        <div class="pt-2">
+          <button type="submit"
+                  class="font-lato mx-auto flex w-[260px] items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-6 py-3 text-white font-extrabold shadow-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-white/60 disabled:opacity-70">
+            <span id="btnSpinner" class="h-0 w-0"></span>
+            <i data-lucide="camera" class="w-5 h-5 [stroke-width:2.25]"></i>
+            <span id="btnText">Iniciar Registro</span>
+          </button>
+        </div>
+      </form>
+
+      <div id="registerMessage" class="mt-5"></div>
+    </div>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    const railWidth = 64;
+    const panel = document.getElementById('sidebarPanel');
+    const main  = document.getElementById('main');
+    const openBtn  = document.getElementById('toggleSidebar');
+    const closeBtn = document.getElementById('closeSidebar');
+    const labels   = Array.from(document.querySelectorAll('#sidebarPanel .label'));
+
+    let open = false;
+    const targetWidth = () => Math.max(Math.min(window.innerWidth/5, 420), 260);
+
+    function staggerLabels(show){
+      labels.forEach((el,i)=>{
+        setTimeout(()=>{
+          if(show){ el.classList.remove('opacity-0','-translate-x-2'); el.classList.add('opacity-100','translate-x-0'); }
+          else    { el.classList.add('opacity-0','-translate-x-2');   el.classList.remove('opacity-100','translate-x-0'); }
+        }, i*50);
+      });
+    }
+
+    function layout(){
+      const w = open ? targetWidth() : 0;
+      panel.style.width = w+'px';
+      main.style.marginLeft = (railWidth + w) + 'px';
+      // mostrar labels tras terminar la transición de ancho
+      const onEnd = (e)=>{
+        if(e.propertyName==='width'){ staggerLabels(open); panel.removeEventListener('transitionend', onEnd); }
+      };
+      panel.addEventListener('transitionend', onEnd);
+    }
+
+    openBtn.addEventListener('click', ()=>{ open=!open; layout(); });
+    closeBtn.addEventListener('click', ()=>{ open=false; layout(); });
+    window.addEventListener('resize', ()=>{ if(open) layout(); });
+
+    // estado inicial
+    staggerLabels(false); layout();
+
+    // Form handlers
+    const form = document.getElementById('registerForm');
+    const msg  = document.getElementById('registerMessage');
+    const btnT = document.getElementById('btnText');
+    const spn  = document.getElementById('btnSpinner');
+
+    const alertBox=(t,m)=>{
+      const base='w-full rounded-2xl px-4 py-3 text-sm ring-1';
+      const map={
+        success: base+' bg-emerald-900/30 text-emerald-100 ring-emerald-600',
+        danger:  base+' bg-red-900/30 text-red-100 ring-red-600',
+        info:    base+' bg-sky-900/30 text-sky-100 ring-sky-600'
+      };
+      return `<div class="${map[t]||map.info}">${m}</div>`;
+    };
+    const setLoading=v=>{
+      if(v){ spn.className='h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent'; btnT.textContent='Procesando...'; }
+      else { spn.className='h-0 w-0'; btnT.textContent='Iniciar Registro'; }
+    };
+
+    form.addEventListener('submit', async e=>{
+      e.preventDefault(); setLoading(true);
+      msg.innerHTML = alertBox('info','<strong>Iniciando registro…</strong> Mira la cámara.');
+      try{
+        const r = await fetch('/register',{method:'POST', body:new FormData(form)});
+        const d = await r.json();
+        if(d.success){
+          msg.innerHTML = alertBox('success', `<strong>Éxito:</strong> ${d.message}`);
+          if(d.action==='redirect_questionnaire'){ setTimeout(()=>location.href=`/questionnaire/${d.student_id}`,2000); }
+        }else{
+          msg.innerHTML = alertBox('danger', `<strong>Error:</strong> ${d.message}`);
+        }
+      }catch{
+        msg.innerHTML = alertBox('danger','<strong>Error de Conexión:</strong> No se pudo conectar con el servidor.');
+      }finally{ setLoading(false); }
+    });
+  </script>
 </body>
 </html>

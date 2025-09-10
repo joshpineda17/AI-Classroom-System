@@ -10,9 +10,9 @@ document.addEventListener('DOMContentLoaded', function () {
         toast.show();
     }
 
-    const tableBody = document.querySelector('#assignTable tbody');
+    const cardsContainer = document.getElementById('assignCards');
 
-    // Cargar todos los datos necesarios y construir la tabla
+    // Cargar todos los datos necesarios y construir las tarjetas de asientos
     async function loadAssignTable() {
         try {
             const [seatBoxesRes, assignmentsRes, studentsRes] = await Promise.all([
@@ -34,24 +34,34 @@ document.addEventListener('DOMContentLoaded', function () {
             // Construir opciones HTML para cada estudiante
             const studentOptions = Object.entries(studentMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
 
-            // Construir filas de la tabla
-            tableBody.innerHTML = seatBoxes.length ? seatBoxes.map(seat => {
-                const sid = seat.seat_id;
-                const assignedId = seatAssignments[sid] || '';
-                return `
-                    <tr>
-                        <td>${sid}</td>
-                        <td>
-                            <select class="form-select seat-select" data-seat-id="${sid}">
-                                <option value="">Sin asignar</option>
-                                ${studentOptions}
-                            </select>
-                        </td>
-                    </tr>
-                `;
-            }).join('') : '<tr><td colspan="2" class="text-center text-muted">No hay asientos definidos. Primero calibre los asientos.</td></tr>';
-
-            // Establecer valores actuales
+            // Construir tarjetas de asientos
+            if (seatBoxes.length > 0) {
+                cardsContainer.innerHTML = seatBoxes.map(seat => {
+                    const sid = seat.seat_id;
+                    return `
+                        <div class="col-12 col-sm-6 col-md-4">
+                            <div class="card card-custom h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <span class="fw-bold fs-5">${sid}</span>
+                                        <button class="btn btn-sm btn-outline-warning rename-btn" data-seat-id="${sid}"><i class="fas fa-pen"></i></button>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Alumno</label>
+                                        <select class="form-select seat-select" data-seat-id="${sid}">
+                                            <option value="">Sin asignar</option>
+                                            ${studentOptions}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                cardsContainer.innerHTML = `<div class="col-12"><div class="text-center text-muted">No hay asientos definidos. Primero calibre los asientos.</div></div>`;
+            }
+            // Establecer valores y eventos en selectores
             document.querySelectorAll('.seat-select').forEach(sel => {
                 const sid = sel.dataset.seatId;
                 const assignedId = seatAssignments[sid] || '';
@@ -59,7 +69,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 sel.addEventListener('change', function () {
                     const newStudentId = this.value;
                     const seatId = this.dataset.seatId;
-                    // Asignar
                     fetch('/api/assign_seat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -67,13 +76,38 @@ document.addEventListener('DOMContentLoaded', function () {
                     }).then(res => res.json()).then(data => {
                         if (data.success) {
                             const studentName = newStudentId ? studentMap[newStudentId] : 'Sin asignar';
-                            showToast(`Asignación actualizada: ${seatId} → ${studentName}`, 'success');
+                            showToast(`Asignación actualizada: ${seatId} -> ${studentName}`, 'success');
                         } else {
                             showToast('No se pudo asignar el asiento.', 'danger');
                         }
                     }).catch(err => {
                         console.error(err);
                         showToast('Error al asignar asiento.', 'danger');
+                    });
+                });
+            });
+            // Establecer eventos en botones de renombrado
+            document.querySelectorAll('.rename-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const oldId = this.dataset.seatId;
+                    const proposed = prompt('Nuevo identificador para el asiento:', oldId);
+                    if (!proposed) return;
+                    const newId = proposed.trim();
+                    if (newId === oldId || newId === '') return;
+                    fetch('/api/rename_seat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ old_id: oldId, new_id: newId })
+                    }).then(res => res.json()).then(data => {
+                        if (data.success) {
+                            showToast(`Asiento renombrado: ${oldId} -> ${newId}`, 'success');
+                            loadAssignTable();
+                        } else {
+                            showToast('No se pudo renombrar el asiento. Verifique que el nuevo nombre no exista.', 'danger');
+                        }
+                    }).catch(err => {
+                        console.error(err);
+                        showToast('Error al renombrar el asiento.', 'danger');
                     });
                 });
             });

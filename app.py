@@ -177,11 +177,11 @@ def api_seat_assignments():
 @app.route('/api/add_seat', methods=['POST'])
 def api_add_seat():
     data = request.get_json(force=True)
-    x = data.get('x'); y = data.get('y'); w = data.get('w'); h = data.get('h')
+    x = data.get('x'); y = data.get('y'); w = data.get('w'); h = data.get('h'); normalized = data.get('normalized', False)
     if None in (x, y, w, h):
         return jsonify({"success": False, "message": "Datos incompletos"}), 400
     try:
-        seat_id = core_logic.add_seat_box(int(x), int(y), int(w), int(h))
+        seat_id = core_logic.add_seat_box(x, y, w, h, normalized=normalized)
         return jsonify({"success": True, "seat_id": seat_id})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)})
@@ -202,6 +202,58 @@ def api_assign_seat():
         return jsonify({"success": False, "message": "seat_id faltante"}), 400
     success = core_logic.assign_student_to_seat(student_id, seat_id)
     return jsonify({"success": success})
+
+# Renombra un asiento existente
+@app.route('/api/rename_seat', methods=['POST'])
+def api_rename_seat():
+    data = request.get_json(force=True)
+    old_id = data.get('old_id')
+    new_id = data.get('new_id')
+    if not old_id or not new_id:
+        return jsonify({"success": False, "message": "old_id y new_id son requeridos"}), 400
+    success = core_logic.rename_seat(old_id, new_id)
+    return jsonify({"success": success})
+
+# --- Página y APIs para escaneo rápido de asistencia ---
+
+@app.route('/quick_scan')
+def quick_scan_page():
+    """Página para escaneo rápido y confirmación de asistencia."""
+    return render_template('quick_scan.html')
+
+@app.route('/api/quick_scan', methods=['POST'])
+def api_quick_scan():
+    """Realiza un escaneo facial rápido de ~3 segundos y devuelve la mejor coincidencia."""
+    try:
+        result = core_logic.quick_scan_and_identify()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
+@app.route('/api/quick_scan_image', methods=['POST'])
+def api_quick_scan_image():
+    """Recibe una imagen (base64) desde el navegador y devuelve el mejor match."""
+    try:
+        data = request.get_json(force=True)
+        b64 = data.get('image_base64')
+        if not b64:
+            return jsonify({"success": False, "message": "image_base64 faltante"}), 400
+        result = core_logic.quick_identify_from_base64(b64)
+        return jsonify(result)
+    except Exception as e:
+        app_logger.exception("Error en /api/quick_scan_image")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/confirm_attendance', methods=['POST'])
+def api_confirm_attendance():
+    """Confirma la asistencia del estudiante indicado."""
+    data = request.get_json(force=True)
+    student_id = data.get('student_id')
+    if not student_id:
+        return jsonify({"success": False, "message": "student_id faltante"}), 400
+    result = core_logic.confirm_attendance(student_id)
+    return jsonify(result)
 
 if __name__ == '__main__':
     # Ejecutar la aplicación sin recargador automático para evitar que el servidor

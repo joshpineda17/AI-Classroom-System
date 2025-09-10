@@ -1,3 +1,4 @@
+import base64
 # core_logic.py
 import cv2
 import os
@@ -61,6 +62,15 @@ EDGES = [(0, 1), (0, 2), (1, 3), (2, 4), (0, 5), (0, 6), (5, 7), (7, 9), (6, 8),
 
 SEATS_FILE = os.path.join('data', 'seats.json')
 SEAT_ASSIGNMENTS_FILE = os.path.join('data', 'seat_assignments.json')
+
+
+def _rect_pixels(rect, normalized, frame_shape):
+    """Convierte un rect [x,y,w,h] a pixeles si está normalizado."""
+    x,y,w,h = rect
+    if normalized:
+        H, W = frame_shape[:2]
+        return int(x*W), int(y*H), int(w*W), int(h*H)
+    return int(x), int(y), int(w), int(h)
 
 # Estructuras globales que se inicializarán mediante load_seat_config().
 seat_boxes = []          # Lista de dicts con keys: seat_id, rect [x,y,w,h]
@@ -186,7 +196,7 @@ def get_seat_assignments():
     return seat_assignments
 
 
-def add_seat_box(x: int, y: int, w: int, h: int) -> str:
+def add_seat_box(x, y, w, h, normalized: bool=False) -> str:
     """Agrega un nuevo asiento a la configuración.
 
     El identificador de asiento se genera automáticamente como "Pupitre N",
@@ -203,7 +213,7 @@ def add_seat_box(x: int, y: int, w: int, h: int) -> str:
     if not seat_boxes:
         load_seat_config()
     seat_id = f"Pupitre {len(seat_boxes) + 1}"
-    seat_boxes.append({"seat_id": seat_id, "rect": [int(x), int(y), int(w), int(h)]})
+    seat_boxes.append({"seat_id": seat_id, "rect": [float(x), float(y), float(w), float(h)], "normalized": bool(normalized)})
     # Inicializar contador y asignación
     participation_counts[seat_id] = 0
     seat_assignments[seat_id] = None
@@ -276,7 +286,7 @@ def generate_calibrate_frames():
         frame_display = cv2.flip(frame, 1)
         # Dibujar cajas de asientos
         for seat in seat_boxes:
-            x, y, w_s, h_s = seat.get('rect')
+            x, y, w_s, h_s = _rect_pixels(seat.get('rect'), seat.get('normalized', False), frame.shape if 'frame' in locals() else frame_display.shape)
             sid = seat.get('seat_id')
             cv2.rectangle(frame_display, (x, y), (x + w_s, y + h_s), (0, 255, 0), 2)
             cv2.putText(frame_display, sid, (x, max(0, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
@@ -318,6 +328,139 @@ def assign_student_to_seat(student_id: str, seat_id: str) -> bool:
         seat_assignments[seat_id] = student_id
     save_seat_assignments()
     return True
+
+
+def rename_seat(old_id: str, new_id: str) -> bool:
+    """Renombra un asiento existente.
+
+    Este método modifica el identificador de un asiento en `seat_boxes` y actualiza
+    las estructuras de asignaciones y contadores para reflejar el nuevo id.
+
+    Args:
+        old_id: Id actual del asiento que se desea renombrar.
+        new_id: Nuevo identificador a asignar. Debe ser único.
+
+    Returns:
+        True si el renombrado se realizó con éxito, False en caso contrario (por
+        ejemplo, si el id viejo no existe o el nuevo ya está en uso).
+    """
+    # Cargar configuración si aún no se ha hecho
+    if not seat_boxes:
+        load_seat_config()
+    # Verificar que exista el asiento y que el nuevo id no esté en uso
+    if not any(seat.get('seat_id') == old_id for seat in seat_boxes):
+        return False
+    if any(seat.get('seat_id') == new_id for seat in seat_boxes):
+        return False
+    # Renombrar en seat_boxes
+    for seat in seat_boxes:
+        if seat.get('seat_id') == old_id:
+            seat['seat_id'] = new_id
+            break
+    # Actualizar asignaciones
+    if old_id in seat_assignments:
+        seat_assignments[new_id] = seat_assignments.pop(old_id)
+    # Actualizar contadores y timestamps
+    if old_id in participation_counts:
+        participation_counts[new_id] = participation_counts.pop(old_id)
+    if old_id in seat_last_participation_time:
+        seat_last_participation_time[new_id] = seat_last_participation_time.pop(old_id)
+    # Guardar cambios a disco
+    save_seat_boxes()
+    save_seat_assignments()
+    return True
+
+def quick_scan_and_identify():
+    """
+    Realiza un escaneo facial rápido utilizando la cámara web y devuelve
+    la mejor coincidencia encontrada en aproximadamente 3 segundos.
+
+    Retorna un diccionario con keys:
+      - success: bool
+      - student_id: id del estudiante reconocido o None
+      - student_name: nombre completo del estudiante reconocido o None
+      - confidence: porcentaje de confianza (0-100) de la coincidencia
+      - message: mensaje de error en caso de fallo
+    """
+    # Obtener estudiantes registrados y sus embeddings
+    students_data = database.get_all_students()
+    if not students_data:
+        return {"success": False, "message": "No hay estudiantes registrados para reconocer."}
+    # Construir lista de encodings y metadatos
+    known_face_encodings = []
+    known_metadata = []
+    for s in students_data:
+        # Cada estudiante puede tener múltiples embeddings
+        for emb in s.get('embeddings', []):
+            known_face_encodings.append(np.array(emb))
+            nombre_completo = f"{s.get('nombre')} {s.get('apellido', '')}".strip()
+            known_metadata.append({'id': s.get('id'), 'nombre': nombre_completo})
+    # Abrir cámara
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        return {"success": False, "message": "Cámara no disponible."}
+    # Escanear durante un tiempo limitado
+    start_time = time.time()
+    best_match = None
+    best_confidence = 0.0
+    try:
+        while time.time() - start_time < 3.0:
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            face_locations = face_recognition.face_locations(rgb_frame)
+            if not face_locations:
+                continue
+            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+            for encoding in face_encodings:
+                # Calcular distancias a los rostros conocidos
+                face_distances = face_recognition.face_distance(known_face_encodings, encoding)
+                if len(face_distances) == 0:
+                    continue
+                best_match_index = np.argmin(face_distances)
+                distance = face_distances[best_match_index]
+                # Solo consideramos coincidencias con distancia razonable
+                if distance < 0.6:
+                    confidence = (1.0 - distance) * 100.0
+                    if confidence > best_confidence:
+                        best_confidence = confidence
+                        best_match = known_metadata[best_match_index]
+    finally:
+        cap.release()
+    if best_match:
+        return {"success": True, "student_id": best_match['id'], "student_name": best_match['nombre'], "confidence": best_confidence}
+    # No se encontró coincidencia
+    return {"success": True, "student_id": None, "student_name": None, "confidence": 0.0}
+
+def confirm_attendance(student_id: str) -> dict:
+    """
+    Confirma la asistencia para el estudiante especificado.  Registra
+    la asistencia en la base de datos si aún no se ha registrado y el
+    periodo actual de clase es válido.
+
+    Args:
+        student_id: Id del estudiante a marcar asistencia.
+
+    Returns:
+        dict: Resultado de la operación con success y message.
+    """
+    # Verificar que el estudiante exista
+    student = database.get_student_by_id(student_id)
+    if not student:
+        return {"success": False, "message": "Estudiante no encontrado."}
+    periodo, msg = get_current_attendance_period()
+    if not periodo:
+        return {"success": False, "message": msg or "Fuera de horario de clase."}
+    # Revisar si ya se registró asistencia hoy
+    if database.has_attended_today_in_period(student_id, periodo):
+        return {"success": False, "message": "La asistencia ya fue registrada para hoy en este período."}
+    try:
+        database.record_attendance(student_id, periodo)
+        nombre_completo = f"{student.get('nombre')} {student.get('apellido', '')}".strip()
+        return {"success": True, "message": f"Asistencia registrada para {nombre_completo}."}
+    except Exception as e:
+        return {"success": False, "message": f"Error al registrar asistencia: {e}"}
 
 
 def award_participation_for_seat(seat_id: str) -> bool:
@@ -374,7 +517,8 @@ def register_student_from_camera(student_id, nombre, apellido):
                 if face_encodings:
                     captured_embeddings.append(face_encodings[0].tolist())
                     time.sleep(0.5)
-            cv2.imshow('Registro Facial', frame_display)
+            # cv2.imshow deshabilitado para entorno tablet
+# cv2.imshow('Registro Facial', frame_display)
             if cv2.waitKey(1) & 0xFF == ord('q'): break
     finally:
         cap.release()
@@ -521,7 +665,7 @@ def generate_pose_frames():
             # Determinar el asiento con el que colisiona la mano (x,y dentro de la caja verticalmente sobre el asiento)
             selected_seat_id = None
             for seat in seat_boxes:
-                x, y, w_s, h_s = seat.get('rect')
+                x, y, w_s, h_s = _rect_pixels(seat.get('rect'), seat.get('normalized', False), frame.shape if 'frame' in locals() else frame_display.shape)
                 seat_id = seat.get('seat_id')
                 # Considerar la mano como participación si está por encima del top del asiento y en rango horizontal
                 if hx_px >= x and hx_px <= x + w_s and hy_px <= y + h_s:
@@ -535,7 +679,7 @@ def generate_pose_frames():
 
         # Dibujar boxes de asientos y etiquetas
         for seat in seat_boxes:
-            sx, sy, sw, sh = seat.get('rect')
+            sx, sy, sw, sh = _rect_pixels(seat.get('rect'), seat.get('normalized', False), frame.shape if 'frame' in locals() else frame_display.shape)
             sid = seat.get('seat_id')
             # Determinar color según si hay mano actual en este asiento
             color = (0, 255, 0)
@@ -672,3 +816,83 @@ def enhance_transcript_with_llm(transcription_id):
     except Exception as e:
         cl_logger.error(f"Error durante la mejora con LLM: {e}")
         return {"success": False, "message": f"Error del procesador IA: {e}"}
+
+def quick_identify_from_base64(image_b64: str) -> dict:
+    """Identifica un estudiante a partir de una imagen base64 enviada desde el navegador.
+
+    Espera datos en formato 'data:image/jpeg;base64,...' o el string base64 sin header.
+    Devuelve un dict con keys: success, student_id, student_name, confidence, message.
+    """
+    try:
+        # Limpiar header si viene con data URL
+        if image_b64.startswith('data:'):
+            header, b64data = image_b64.split(',', 1)
+        else:
+            b64data = image_b64
+        img_bytes = base64.b64decode(b64data)
+    except Exception as e:
+        return {"success": False, "message": f"base64 inválido: {e}"}
+
+    # Decodificar a imagen BGR para usar face_recognition
+    np_arr = np.frombuffer(img_bytes, np.uint8)
+    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    if frame is None:
+        return {"success": False, "message": "No se pudo decodificar la imagen."}
+
+    # Obtener embeddings registrados
+    students_data = database.get_all_students()
+    if not students_data:
+        return {"success": False, "message": "No hay estudiantes registrados para reconocer."}
+
+    known_face_encodings = []
+    known_metadata = []
+    for s in students_data:
+        nombre = f"{s.get('nombre','')} {s.get('apellido','')}".strip()
+        for emb in s.get('embeddings', []):
+            enc = np.array(emb, dtype=np.float32)
+            if enc.size == 128 or enc.size == 512:
+                known_face_encodings.append(enc)
+                known_metadata.append({'id': s.get('id'), 'nombre': nombre})
+
+    if not known_face_encodings:
+        return {"success": False, "message": "No hay embeddings disponibles."}
+
+    # Detección y codificación del rostro en la imagen
+    rgb = frame[:, :, ::-1]
+    boxes = face_recognition.face_locations(rgb, model='hog')
+    if not boxes:
+        return {"success": False, "message": "No se detectaron rostros."}
+    encodings = face_recognition.face_encodings(rgb, boxes)
+    if not encodings:
+        return {"success": False, "message": "No se pudieron calcular encodings."}
+
+    # Comparar con base conocida: usar distancia mínima
+    import numpy.linalg as LA
+    best_idx = -1
+    best_dist = 1e9
+    target = encodings[0]
+    for i, enc in enumerate(known_face_encodings):
+        # Asegurar mismo tamaño (algunas bases pueden tener 512)
+        if enc.shape != target.shape:
+            continue
+        d = LA.norm(enc - target)
+        if d < best_dist:
+            best_dist = d
+            best_idx = i
+
+    if best_idx == -1:
+        return {"success": False, "message": "No se encontró coincidencia compatible."}
+
+    # Convertir distancia a una pseudo-confianza (heurística)
+    # Para encodings 128D (face_recognition), distancias < 0.6 suelen considerarse match
+    # Mapeamos [0.3..0.6] -> [100..0]
+    d = float(best_dist)
+    conf = max(0.0, min(1.0, (0.6 - d) / 0.3)) * 100.0
+
+    meta = known_metadata[best_idx]
+    return {
+        "success": True,
+        "student_id": meta.get('id'),
+        "student_name": meta.get('nombre'),
+        "confidence": round(conf, 2)
+    }
