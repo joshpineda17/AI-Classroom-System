@@ -2,68 +2,202 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escaneo Rápido | AI‑Classroom</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Escaneo Rápido | AI-Classroom</title>
+
+	<!-- Tailwind + Lucide -->
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: { lato: ['Lato','ui-sans-serif','system-ui'] },
+					boxShadow: { card: '0 20px 40px -20px rgba(0,0,0,.35)' }
+				}
+			}
+		}
+	</script>
+	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@700;800&display=swap" rel="stylesheet"/>
+	<script src="https://unpkg.com/lucide@latest"></script>
+
+	<!-- Bootstrap solo para el toast -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
 </head>
-<body class="bg-dark text-white">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark-custom shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/"><i class="fas fa-brain me-2"></i>AI‑Classroom</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/groups">Formar Grupos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/calibrate_seats">Calibrar Asientos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/assign_seats">Asignar Asientos</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/quick_scan">Escaneo Rápido</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+<body class="min-h-screen bg-gradient-to-b from-indigo-600 to-blue-600">
 
-    <div class="container mt-4">
-        <div id="action-toast" class="toast align-items-center text-bg-primary border-0 position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 1100;">
-            <div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
-        </div>
-        <div class="row justify-content-center">
-            <div class="col-lg-6 col-md-8">
-                <div class="card card-custom p-4 text-center">
-                    <h3 class="mb-3"><i class="fas fa-id-card me-2"></i>Escaneo Rápido de Asistencia</h3>
-                    <p class="mb-4">Pulse el botón para escanear el rostro del estudiante. Tras el escaneo, confirme si la persona reconocida es correcta.</p>
-                    
-<div class="mb-3 text-center">
-    <video id="cameraPreview" autoplay playsinline muted style="max-width: 100%; border-radius: 12px; border: 1px solid var(--border-color); display:none;"></video>
-</div>
-<div id="scanSection"
- class="my-4">
-                        <button id="startScanBtn" class="btn btn-primary btn-lg"><i class="fas fa-camera me-2"></i>Iniciar Escaneo</button>
-                    </div>
-                    <div id="scanMessage" class="my-2"></div>
-                    <div id="scanResult" class="my-4 d-none">
-                        <h4 id="recognizedName" class="mb-3"></h4>
-                        <p>¿Es correcta esta persona?</p>
-                        <div id="confirmButtons" class="mb-3">
-                            <button id="confirmYes" class="btn btn-success me-2">Sí</button>
-                            <button id="confirmNo" class="btn btn-danger">No</button>
-                        </div>
-                        <div id="manualSelect" class="d-none mb-3">
-                            <label for="manualStudent" class="form-label">Seleccione el estudiante:</label>
-                            <select id="manualStudent" class="form-select mb-2"></select>
-                            <button id="confirmManual" class="btn btn-success mt-2">Confirmar</button>
-                        </div>
-                        <button id="rescanBtn" class="btn btn-secondary mt-3"><i class="fas fa-redo me-2"></i>Reintentar</button>
-                    </div>
-                    <a href="/dashboard" class="btn btn-secondary mt-4"><i class="fas fa-arrow-left me-2"></i>Volver al Dashboard</a>
-                </div>
-            </div>
-        </div>
-    </div>
+	<!-- RAIL -->
+	<aside class="fixed left-0 top-0 z-40 h-full w-16 bg-white text-indigo-700 border-r">
+		<div class="flex h-16 items-center justify-center border-b">
+			<button id="toggleSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Abrir menú">
+				<i data-lucide="menu" class="w-6 h-6 [stroke-width:2.25]"></i>
+			</button>
+		</div>
+		<nav class="mt-3 flex flex-col items-center gap-3">
+			<a href="/" title="Registrar Estudiante" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="user-plus" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/dashboard" title="Dashboard" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="gauge" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/groups" title="Formar grupos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="users" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/calibrate_seats" title="Calibrar asientos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="crosshair" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/assign_seats" title="Asignar asientos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="layout-grid" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/quick_scan" title="Escaneo rápido" class="p-2 rounded-md bg-indigo-50"><i data-lucide="scan" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+		</nav>
+	</aside>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='quick_scan.js') }}"></script>
+	<!-- PANEL -->
+	<div id="sidebarPanel"
+		class="fixed top-0 left-16 z-30 h-full w-[0px] overflow-hidden bg-white text-indigo-700 border-r transition-[width] duration-300 ease-out">
+		<div class="flex items-center justify-end px-4 py-4 border-b">
+			<button id="closeSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Cerrar">
+				<i data-lucide="x" class="w-5 h-5 [stroke-width:2.25]"></i>
+			</button>
+		</div>
+
+		<nav class="px-2 py-3 space-y-1">
+			<a href="/" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+				<span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Registrar Estudiante</span>
+			</a>
+			<a href="/dashboard" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+				<span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Dashboard</span>
+			</a>
+			<a href="/groups" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+				<span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Formar grupos</span>
+			</a>
+			<a href="/calibrate_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+				<span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Calibrar asientos</span>
+			</a>
+			<a href="/assign_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50">
+				<span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Asignar asientos</span>
+			</a>
+			<a href="/quick_scan" class="flex h-10 items-center rounded-lg px-3 bg-indigo-50">
+				<span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Escaneo rápido</span>
+			</a>
+		</nav>
+
+		<div class="absolute inset-x-0 bottom-0 border-t px-3 py-3">
+			<div class="flex h-10 items-center gap-2 text-indigo-700 px-1">
+				<i data-lucide="brain" class="w-6 h-6 [stroke-width:2.25]"></i>
+				<span class="label leading-none font-lato font-extrabold opacity-0 -translate-x-2 transition-all duration-300">AI-Classroom</span>
+			</div>
+		</div>
+	</div>
+
+	<!-- MAIN -->
+	<main id="main" class="ml-16 transition-all duration-300 ease-out min-h-screen px-6 py-8">
+		<div class="mx-auto w-full max-w-3xl">
+			<header class="mb-6 flex items-center gap-3 text-white">
+				<i data-lucide="scan" class="w-7 h-7"></i>
+				<h1 class="font-lato text-2xl font-extrabold">Escaneo Rápido de Asistencia</h1>
+			</header>
+
+			<section class="rounded-2xl bg-white/90 shadow-card ring-1 ring-white/40 backdrop-blur p-6">
+				<p class="text-slate-700 mb-4">
+					Pulsa el botón para escanear el rostro. Confirma la identidad al finalizar.
+				</p>
+
+				<!-- Toast Bootstrap -->
+				<div id="action-toast"
+					class="toast align-items-center text-bg-primary border-0 position-fixed top-0 end-0 m-3"
+					role="alert" aria-live="assertive" aria-atomic="true" style="z-index:1100; display:none;">
+					<div class="d-flex">
+						<div class="toast-body"></div>
+						<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+					</div>
+				</div>
+
+				<!-- Preview cámara -->
+				<div class="mb-4">
+					<video id="cameraPreview" autoplay playsinline muted
+						class="w-full rounded-2xl ring-1 ring-slate-200 hidden"></video>
+				</div>
+
+				<!-- Botón iniciar -->
+				<div id="scanSection" class="my-4">
+					<button id="startScanBtn"
+						class="rounded-2xl bg-indigo-700 text-white font-semibold px-6 py-3 hover:bg-indigo-600 inline-flex items-center gap-2">
+						<i data-lucide="camera" class="w-5 h-5"></i> Iniciar Escaneo
+					</button>
+				</div>
+
+				<!-- Mensajes -->
+				<div id="scanMessage" class="my-2 text-slate-700"></div>
+
+				<!-- Resultado -->
+				<div id="scanResult" class="my-4 d-none">
+					<h4 id="recognizedName" class="mb-3 text-slate-800 font-semibold"></h4>
+					<p class="text-slate-700 mb-3">¿Es correcta esta persona?</p>
+
+					<div id="confirmButtons" class="mb-3 flex gap-3">
+					 </div>
+					<!-- Botones sí/no -->
+					<div class="mb-3 flex gap-3">
+						<button id="confirmYes" class="rounded-xl bg-emerald-600 text-white px-5 py-2.5 hover:bg-emerald-500">Sí</button>
+						<button id="confirmNo"  class="rounded-xl bg-rose-600 text-white px-5 py-2.5 hover:bg-rose-500">No</button>
+					</div>
+
+						<!-- Selección manual (ID único, contenedor único) -->
+						<div id="manualSelect" class="d-none mb-3">
+							<label for="manualStudent" class="block text-sm font-medium text-slate-700 mb-1">Seleccione el estudiante:</label>
+							<select id="manualStudent" class="w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+							<button id="confirmManual" class="mt-2 rounded-xl bg-emerald-600 text-white px-5 py-2.5 hover:bg-emerald-500">Confirmar</button>
+						</div>
+
+					<button id="rescanBtn" class="d-none
+						class="mt-3 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
+						<i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reintentar
+					</button>
+				</div>
+
+				<div class="mt-6">
+					<a href="/dashboard"
+						class="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-slate-700 hover:bg-slate-50">
+						<i data-lucide="arrow-left" class="w-4 h-4"></i> Volver al Dashboard
+					</a>
+				</div>
+			</section>
+		</div>
+	</main>
+
+	<script>
+		lucide.createIcons();
+
+		// Sidebar igual que en index
+		const railWidth = 64;
+		const panel = document.getElementById('sidebarPanel');
+		const main  = document.getElementById('main');
+		const openBtn  = document.getElementById('toggleSidebar');
+		const closeBtn = document.getElementById('closeSidebar');
+		const labels   = Array.from(document.querySelectorAll('#sidebarPanel .label'));
+
+		let open = false;
+		const targetWidth = () => Math.max(Math.min(window.innerWidth/5, 420), 260);
+
+		function staggerLabels(show){
+			labels.forEach((el,i)=>{
+				setTimeout(()=>{
+					if(show){ el.classList.remove('opacity-0','-translate-x-2'); el.classList.add('opacity-100','translate-x-0'); }
+					else    { el.classList.add('opacity-0','-translate-x-2');   el.classList.remove('opacity-100','translate-x-0'); }
+				}, i*50);
+			});
+		}
+		function layout(){
+			const w = open ? targetWidth() : 0;
+			panel.style.width = w+'px';
+			main.style.marginLeft = (railWidth + w) + 'px';
+			const onEnd = (e)=>{
+				if(e.propertyName==='width'){ staggerLabels(open); panel.removeEventListener('transitionend', onEnd); }
+			};
+			panel.addEventListener('transitionend', onEnd);
+		}
+		openBtn.addEventListener('click', ()=>{ open=!open; layout(); });
+		closeBtn.addEventListener('click', ()=>{ open=false; layout(); });
+		window.addEventListener('resize', ()=>{ if(open) layout(); });
+		staggerLabels(false); layout();
+	</script>
+
+	<!-- Bootstrap JS para el toast -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+	<!-- Tu lógica de escaneo -->
+	<script src="{{ url_for('static', filename='quick_scan.js') }}"></script>
 </body>
 </html>

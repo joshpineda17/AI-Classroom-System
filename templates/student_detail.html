@@ -1,69 +1,173 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfil de {{ student.nombre }} | AI-Classroom</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body class="bg-dark text-white">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark-custom shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/"><i class="fas fa-brain me-2"></i>AI-Classroom</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    <div class="container mt-5 mb-5">
-        <div class="text-center mb-5">
-            <h1 class="display-5">Perfil de Aprendizaje</h1>
-            <p class="lead text-muted">{{ student.nombre }} {{ student.apellido }} (ID: {{ student.id }})</p>
-        </div>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Perfil de {{ student.nombre }} | AI-Classroom</title>
 
-        {% if student.kolb_style %}
-        <div class="row g-4 justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card card-custom h-100 text-center">
-                    <div class="card-header header-custom text-primary-custom"><h5>Modelo de Kolb</h5></div>
-                    <div class="card-body d-flex flex-column justify-content-center">
-                        <i class="fas fa-project-diagram fa-3x text-primary-custom mb-3"></i>
-                        <h2 class="card-title">{{ student.kolb_style }}</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-                <div class="card card-custom h-100 text-center">
-                    <div class="card-header header-custom text-warning-custom"><h5>Modelo VAK</h5></div>
-                    <div class="card-body d-flex flex-column justify-content-center">
-                        <i class="fas fa-eye fa-3x text-warning-custom mb-3"></i>
-                        <h2 class="card-title">{{ student.vak_style }}</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4">
-                <div class="card card-custom h-100">
-                    <div class="card-header header-custom text-info-custom text-center"><h5>Modelo Felder-Silverman</h5></div>
-                    <ul class="list-group list-group-flush">
-                        {% for dimension, style in student.felder_styles.items() %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>{{ dimension.replace('/', ' / ') }}</span>
-                            <span class="badge bg-info rounded-pill">{{ style }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <div class="text-center">
-            <p class="h4 text-muted">Este estudiante aún no ha completado el cuestionario de estilos de aprendizaje.</p>
-        </div>
-        {% endif %}
-    </div>
+	<!-- Tailwind + Lucide -->
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: { lato: ['Lato','ui-sans-serif','system-ui'] },
+					boxShadow: { card: '0 20px 40px -20px rgba(0,0,0,.35)' }
+				}
+			}
+		}
+	</script>
+	<link href="https://fonts.googleapis.com/css2?family=Lato:wght@700;800&display=swap" rel="stylesheet"/>
+	<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-indigo-600 to-blue-600">
+
+	<!-- RAIL -->
+	<aside class="fixed left-0 top-0 z-40 h-full w-16 bg-white text-indigo-700 border-r">
+		<div class="flex h-16 items-center justify-center border-b">
+			<button id="toggleSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Abrir menú">
+				<i data-lucide="menu" class="w-6 h-6 [stroke-width:2.25]"></i>
+			</button>
+		</div>
+		<nav class="mt-3 flex flex-col items-center gap-3">
+			<a href="/" title="Registrar Estudiante" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="user-plus" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/dashboard" title="Dashboard" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="gauge" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/groups" title="Formar grupos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="users" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/calibrate_seats" title="Calibrar asientos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="crosshair" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/quick_scan" title="Escaneo rápido" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="scan" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+			<a href="/assign_seats" title="Asignar asientos" class="p-2 rounded-md hover:bg-indigo-50"><i data-lucide="layout-grid" class="w-5 h-5 [stroke-width:2.25]"></i></a>
+		</nav>
+	</aside>
+
+	<!-- PANEL -->
+	<div id="sidebarPanel"
+		class="fixed top-0 left-16 z-30 h-full w-[0px] overflow-hidden bg-white text-indigo-700 border-r transition-[width] duration-300 ease-out">
+		<div class="flex items-center justify-end px-4 py-4 border-b">
+			<button id="closeSidebar" class="p-2 rounded-md hover:bg-indigo-50" aria-label="Cerrar">
+				<i data-lucide="x" class="w-5 h-5 [stroke-width:2.25]"></i>
+			</button>
+		</div>
+
+		<nav class="px-2 py-3 space-y-1">
+			<a href="/" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Registrar Estudiante</span></a>
+			<a href="/dashboard" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Dashboard</span></a>
+			<a href="/groups" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Formar grupos</span></a>
+			<a href="/calibrate_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Calibrar asientos</span></a>
+			<a href="/quick_scan" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Escaneo rápido</span></a>
+			<a href="/assign_seats" class="flex h-10 items-center rounded-lg px-3 hover:bg-indigo-50"><span class="label leading-none font-semibold opacity-0 -translate-x-2 transition-all duration-300">Asignar asientos</span></a>
+		</nav>
+
+		<div class="absolute inset-x-0 bottom-0 border-t px-3 py-3">
+			<div class="flex h-10 items-center gap-2 text-indigo-700 px-1">
+				<i data-lucide="brain" class="w-6 h-6 [stroke-width:2.25]"></i>
+				<span class="label leading-none font-lato font-extrabold opacity-0 -translate-x-2 transition-all duration-300">AI-Classroom</span>
+			</div>
+		</div>
+	</div>
+
+	<!-- MAIN -->
+	<main id="main" class="ml-16 transition-all duration-300 ease-out min-h-screen px-6 py-8">
+		<div class="mx-auto w-full max-w-6xl">
+			<header class="mb-6 flex items-center justify-between">
+				<div class="flex items-center gap-3 text-white">
+					<i data-lucide="id-card" class="w-8 h-8"></i>
+					<div>
+						<h1 class="font-lato text-2xl font-extrabold">Perfil de Aprendizaje</h1>
+						<p class="text-white/80">{{ student.nombre }} {{ student.apellido }} • ID: {{ student.id }}</p>
+					</div>
+				</div>
+				<a href="/dashboard"
+					class="inline-flex items-center gap-2 rounded-2xl border border-white/60 bg-white/10 px-4 py-2 text-white hover:bg-white/20">
+					<i data-lucide="arrow-left" class="w-4 h-4"></i> Volver
+				</a>
+			</header>
+
+			{% if student.kolb_style %}
+			<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				<!-- Kolb -->
+				<div class="rounded-2xl bg-white/90 shadow-card ring-1 ring-white/40 backdrop-blur p-6 text-center">
+					<div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+						<i data-lucide="workflow" class="w-6 h-6"></i>
+					</div>
+					<h3 class="text-slate-800 font-semibold">Modelo de Kolb</h3>
+					<p class="mt-2 text-xl font-extrabold text-indigo-700">{{ student.kolb_style }}</p>
+				</div>
+
+				<!-- VAK -->
+				<div class="rounded-2xl bg-white/90 shadow-card ring-1 ring-white/40 backdrop-blur p-6 text-center">
+					<div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+						<i data-lucide="sparkles" class="w-6 h-6"></i>
+					</div>
+					<h3 class="text-slate-800 font-semibold">Modelo VAK</h3>
+					<p class="mt-2 text-xl font-extrabold text-amber-700">{{ student.vak_style }}</p>
+				</div>
+
+				<!-- Felder-Silverman -->
+				<div class="rounded-2xl bg-white/90 shadow-card ring-1 ring-white/40 backdrop-blur p-6">
+					<div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+						<i data-lucide="sliders-horizontal" class="w-6 h-6"></i>
+					</div>
+					<h3 class="text-slate-800 font-semibold text-center">Modelo Felder-Silverman</h3>
+					<ul class="mt-3 divide-y divide-slate-200">
+						{% for dimension, style in student.felder_styles.items() %}
+						<li class="flex items-center justify-between py-2">
+							<span class="text-slate-700">{{ dimension.replace('/', ' / ') }}</span>
+							<span class="rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-700">{{ style }}</span>
+						</li>
+						{% endfor %}
+					</ul>
+				</div>
+			</section>
+			{% else %}
+			<section class="rounded-2xl bg-white/90 shadow-card ring-1 ring-white/40 backdrop-blur p-8 text-center">
+				<i data-lucide="clipboard-x" class="w-10 h-10 mx-auto text-slate-500 mb-3"></i>
+				<p class="text-slate-600 text-lg">Este estudiante aún no ha completado el cuestionario de estilos de aprendizaje.</p>
+				<div class="mt-4">
+					<a href="/questionnaire/{{ student.id }}"
+						class="inline-flex items-center gap-2 rounded-2xl bg-indigo-700 px-5 py-2.5 text-white hover:bg-indigo-600">
+						<i data-lucide="clipboard-list" class="w-4 h-4"></i> Ir al cuestionario
+					</a>
+				</div>
+			</section>
+			{% endif %}
+		</div>
+	</main>
+
+	<script>
+		lucide.createIcons();
+
+		// Sidebar igual que en páginas previas
+		const railWidth = 64;
+		const panel = document.getElementById('sidebarPanel');
+		const main  = document.getElementById('main');
+		const openBtn  = document.getElementById('toggleSidebar');
+		const closeBtn = document.getElementById('closeSidebar');
+		const labels   = Array.from(document.querySelectorAll('#sidebarPanel .label'));
+
+		let open = false;
+		const targetWidth = () => Math.max(Math.min(window.innerWidth/5, 420), 260);
+
+		function staggerLabels(show){
+			labels.forEach((el,i)=>{
+				setTimeout(()=>{
+					if(show){ el.classList.remove('opacity-0','-translate-x-2'); el.classList.add('opacity-100','translate-x-0'); }
+					else    { el.classList.add('opacity-0','-translate-x-2');   el.classList.remove('opacity-100','translate-x-0'); }
+				}, i*50);
+			});
+		}
+		function layout(){
+			const w = open ? targetWidth() : 0;
+			panel.style.width = w+'px';
+			main.style.marginLeft = (railWidth + w) + 'px';
+			const onEnd = (e)=>{
+				if(e.propertyName==='width'){ staggerLabels(open); panel.removeEventListener('transitionend', onEnd); }
+			};
+			panel.addEventListener('transitionend', onEnd);
+		}
+		openBtn.addEventListener('click', ()=>{ open=!open; layout(); });
+		closeBtn.addEventListener('click', ()=>{ open=false; layout(); });
+		window.addEventListener('resize', ()=>{ if(open) layout(); });
+		staggerLabels(false); layout();
+	</script>
 </body>
 </html>

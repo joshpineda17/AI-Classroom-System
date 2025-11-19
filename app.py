@@ -107,7 +107,39 @@ def enhance_transcription_route(transcription_id):
 
 # --- Rutas de API para Datos ---
 @app.route('/api/students_list')
-def api_students_list(): return jsonify(database.get_all_students_basic_info())
+def api_students_list():
+    """Devuelve lista normalizada y deshabilita caché."""
+    raw = database.get_all_students_basic_info()  # puede ser lista de dicts o tuplas
+
+    normed = []
+    for s in (raw or []):
+        # si viene como tupla (id,nombre,apellido,fecha) ajústalo aquí
+        if isinstance(s, (list, tuple)) and len(s) >= 3:
+            _id, _nom, _ape = s[0], s[1], s[2]
+            _reg = s[3] if len(s) > 3 else None
+            normed.append({
+                "id": _id,
+                "nombre": _nom or "",
+                "apellido": _ape or "",
+                "registro_fecha": _reg
+            })
+            continue
+        # si viene como dict, normaliza claves
+        _id = s.get("id") or s.get("student_id") or s.get("uid") or s.get("_id")
+        _nom = s.get("nombre") or s.get("first_name") or s.get("name") or s.get("nombres") or ""
+        _ape = s.get("apellido") or s.get("last_name") or s.get("surname") or s.get("apellidos") or ""
+        _reg = (
+            s.get("registro_fecha") or s.get("fecha_registro")
+            or s.get("created_at") or s.get("createdAt") or s.get("registro")
+        )
+        normed.append({
+            "id": _id, "nombre": _nom, "apellido": _ape, "registro_fecha": _reg
+        })
+
+    resp = jsonify({"students": normed})
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.route('/api/delete_student/<student_id>', methods=['DELETE'])
 def delete_student_route(student_id): return jsonify(core_logic.delete_student(student_id))

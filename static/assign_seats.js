@@ -39,24 +39,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 cardsContainer.innerHTML = seatBoxes.map(seat => {
                     const sid = seat.seat_id;
                     return `
-                        <div class="col-12 col-sm-6 col-md-4">
-                            <div class="card card-custom h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <span class="fw-bold fs-5">${sid}</span>
-                                        <button class="btn btn-sm btn-outline-warning rename-btn" data-seat-id="${sid}"><i class="fas fa-pen"></i></button>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Alumno</label>
-                                        <select class="form-select seat-select" data-seat-id="${sid}">
-                                            <option value="">Sin asignar</option>
-                                            ${studentOptions}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
+                      <div class="card card-custom h-100">
+                        <div class="card-body">
+                          <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="card-title">${sid}</span>
+                            <button class="btn btn-sm btn-outline-warning rename-btn" data-seat-id="${sid}">
+                              <i class="fas fa-pen"></i>
+                            </button>
+                          </div>
+                          <div>
+                            <label class="form-label">Alumno</label>
+                            <select class="form-select seat-select" data-seat-id="${sid}">
+                              <option value="">Sin asignar</option>
+                              ${studentOptions}
+                            </select>
+                          </div>
                         </div>
-                    `;
+                      </div>`;
                 }).join('');
             } else {
                 cardsContainer.innerHTML = `<div class="col-12"><div class="text-center text-muted">No hay asientos definidos. Primero calibre los asientos.</div></div>`;

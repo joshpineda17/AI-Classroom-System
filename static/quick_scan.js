@@ -89,6 +89,10 @@ function snapshotAsBase64() {
         scanMessage.innerHTML = '';
         startBtn.disabled = false;
         scanSection.classList.remove('d-none');
+        manualSelectContainer.classList.add('d-none');
+        confirmYes.classList.add('d-none');
+        confirmNo.classList.add('d-none');
+        rescanBtn.classList.add('d-none');
     }
 
     startBtn.addEventListener('click', async function () {

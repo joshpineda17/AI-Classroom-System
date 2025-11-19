@@ -1,5 +1,6 @@
 // static/dashboard.js
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('dashboard.js v4 loaded');
     const toastElement = document.getElementById('action-toast');
     const toast = new bootstrap.Toast(toastElement);
     const videoModal = new bootstrap.Modal(document.getElementById('videoModal'));
@@ -8,11 +9,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const videoModalLabel = document.getElementById('videoModalLabel');
 
     function showToast(message, type = 'primary') {
-        toastElement.querySelector('.toast-body').textContent = message;
-        toastElement.className = `toast align-items-center text-bg-${type} border-0 position-fixed top-0 end-0 m-3`;
-        toast.show();
+        const el = toastElement;
+        el.querySelector('.toast-body').textContent = message;
+        el.classList.remove('text-bg-primary','text-bg-success','text-bg-danger','text-bg-warning','text-bg-info');
+        el.classList.add(`text-bg-${type}`);
+        bootstrap.Toast.getOrCreateInstance(el).show();
     }
-    
+    function setRecordingUI(active){
+        const startBtn = document.getElementById('startRecordingBtn');
+        const stopBtn  = document.getElementById('stopRecordingBtn');
+        if (!startBtn || !stopBtn) return;
+        startBtn.classList.toggle('hidden', !!active);
+        stopBtn.classList.toggle('hidden',  !active);
+    }
+    const modelBtn       = document.getElementById('modelBtn');
+    const modelMenu      = document.getElementById('modelMenu'); // .model-menu en HTML
+    const modelBtnLabel  = document.getElementById('modelBtnLabel');
+    const whisperSelect  = document.getElementById('whisperModelSelect');
+
+    if (modelBtn && modelMenu && modelBtnLabel && whisperSelect) {
+        // Toggle del menú
+        modelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            modelMenu.style.display = modelMenu.style.display === 'block' ? 'none' : 'block';
+        });
+        // Cerrar al hacer click fuera
+        document.addEventListener('click', () => { modelMenu.style.display = 'none'; });
+        // Selección de opción
+        modelMenu.querySelectorAll('button[data-model]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.dataset.model;
+                whisperSelect.value = val;
+                // Texto visible sin paréntesis
+                const clean = btn.textContent.trim().split('(')[0].trim();
+                modelBtnLabel.textContent = clean;
+                modelMenu.style.display = 'none';
+            });
+        });
+    }
+    if (whisperSelect && modelBtnLabel) {
+        const opt = whisperSelect.options[whisperSelect.selectedIndex];
+        if (opt) modelBtnLabel.textContent = opt.text.split('(')[0].trim();
+    }    
     function loadAttendanceSummary() {
         fetch('/api/attendance_summary_today').then(res => res.json()).then(data => {
             const tbody = document.querySelector('#attendanceSummaryTable tbody');
@@ -28,17 +66,61 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadStudentList() {
-        fetch('/api/students_list').then(res => res.json()).then(data => {
+        fetch(`/api/students_list?t=${Date.now()}`, {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        })
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then(payload => {
+            // Soporta: [..] o {students:[..]}
+            const list =
+                (Array.isArray(payload) && payload) ||
+                (Array.isArray(payload.students) && payload.students) ||
+                (Array.isArray(payload.data) && payload.data) ||
+                (Array.isArray(payload.results) && payload.results) ||
+                [];
+                console.log('students_list payload keys:', Object.keys(payload || {}), 'count:', list.length);
             const tbody = document.querySelector('#studentListTable tbody');
-            tbody.innerHTML = data.length ? data.map(s => `
-                <tr>
-                    <td>${s.id}</td>
-                    <td><a href="/student/${s.id}" class="text-info text-decoration-none">${s.nombre} ${s.apellido}</a></td>
-                    <td>${s.registro_fecha}</td>
-                    <td><button class="btn btn-sm btn-outline-danger del-btn" data-id="${s.id}"><i class="fas fa-trash"></i></button></td>
-                </tr>`).join('') : '<tr><td colspan="4" class="text-center text-muted">No hay estudiantes.</td></tr>';
+
+            // Normaliza campos frecuentes
+            const norm = s => {
+                const id = s.id ?? s.student_id ?? s.uid ?? s._id ?? '';
+                const nombre = s.nombre ?? s.first_name ?? s.name ?? s.nombres ?? '';
+                const apellido = s.apellido ?? s.last_name ?? s.surname ?? s.apellidos ?? '';
+                const full = (s.nombre_completo ?? `${nombre} ${apellido}`)?.trim() || (s.full_name ?? '');
+                const rawDate = s.registro_fecha ?? s.fecha_registro ?? s.created_at ?? s.createdAt ?? s.registro ?? s.created ?? null;
+                const dateStr = rawDate
+                    ? (isNaN(Date.parse(rawDate)) ? String(rawDate) : new Date(rawDate).toLocaleString())
+                    : '-';
+                return { id, full, dateStr };
+            };
+
+            const rows = list.map(s => {
+                const n = norm(s);
+                return `
+                    <tr>
+                        <td>${n.id}</td>
+                        <td><a href="/student/${n.id}" class="text-info text-decoration-none">${n.full}</a></td>
+                        <td>${n.dateStr}</td>
+                        <td><button class="btn btn-sm btn-outline-danger del-btn" data-id="${n.id}"><i class="fas fa-trash"></i></button></td>
+                    </tr>`;
+            });
+
+            tbody.innerHTML = rows.length
+                ? rows.join('')
+                : `<tr><td colspan="4" class="text-center text-muted">
+                      No hay estudiantes. <small class="d-block text-muted">payload keys: ${Object.keys(payload).join(', ') || 'array vacío'}</small>
+                   </td></tr>`;
             attachStudentDeleteEvents();
-        }).catch(err => console.error("Error cargando lista de estudiantes:", err));
+        })
+        .catch(err => {
+            console.error("Error cargando lista de estudiantes:", err);
+            const tbody = document.querySelector('#studentListTable tbody');
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error cargando estudiantes (${err.message}).</td></tr>`;
+        });
     }
 
     function loadTranscriptions() {
@@ -124,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('startRecordingBtn').disabled = data.recording_active;
             document.getElementById('stopRecordingBtn').disabled = !data.recording_active;
             document.getElementById('whisperModelSelect').disabled = data.recording_active;
+            if (modelBtn) modelBtn.disabled = data.recording_active; // bloquear selector mientras graba
         });
     }
 
@@ -135,9 +218,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
             showToast(data.message, data.success ? 'success' : 'warning');
             if (data.success && videoSrc) {
+
                 videoModalLabel.textContent = modalTitle;
-                videoFeed.src = videoSrc;
-                videoModal.show();
+                videoFeed.onerror = () => showToast('No se pudo cargar el video.', 'danger');
+                videoFeed.src = '';
+
+                setTimeout(() => {
+                    videoFeed.src = `${videoSrc}?t=${Date.now()}`;
+                    videoModal.show();
+                }, 50);
             }
         } catch (error) {
             showToast(`Error de conexión al ${actionName}.`, 'danger');
@@ -161,7 +250,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    document.getElementById('startRecordingBtn').addEventListener('click', () => handleMonitorAction('/start_manual_recording', 'iniciar grabación'));
+    document.getElementById('startRecordingBtn').addEventListener('click', async () => {
+        setRecordingUI(true); // feedback inmediato
+        await handleMonitorAction('/start_manual_recording', 'iniciar grabación');
+    });
     document.getElementById('stopRecordingBtn').addEventListener('click', async () => {
         const btn = document.getElementById('stopRecordingBtn');
         const modelSelect = document.getElementById('whisperModelSelect');
@@ -193,7 +285,14 @@ document.addEventListener('DOMContentLoaded', function () {
         loadTranscriptions();
     }
     loadAllData();
+    // refresco breve tras altas recientes
+    setTimeout(loadStudentList, 2000);
+    setTimeout(loadStudentList, 5000);
     updateStatusIndicators();
+    // sincroniza visibilidad Start/Stop según /status
+    setInterval(() => {
+        fetch('/status').then(r=>r.json()).then(s=>setRecordingUI(!!s.recording_active));
+    }, 1000);
     
     setInterval(updateStatusIndicators, 3000);
     setInterval(() => {
